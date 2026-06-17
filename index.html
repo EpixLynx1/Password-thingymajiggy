@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Password Health Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            font-size: 18px;
+        }
+
+        .meter {
+            height: 20px;
+            background: #ddd;
+            margin-top: 10px;
+        }
+
+        .bar {
+            height: 100%;
+            width: 0%;
+            transition: 0.3s;
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 10px 20px;
+        }
+
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Password Health Dashboard</h1>
+
+<input type="password" id="password" placeholder="Enter password">
+
+<div class="meter">
+    <div class="bar" id="bar"></div>
+</div>
+
+<div id="results"></div>
+
+<button onclick="savePassword()">Save Password Check</button>
+<button onclick="generatePassphrase()">Generate Passphrase</button>
+
+<p id="passphrase"></p>
+
+<script>
+
+const commonPatterns = [
+    "123",
+    "password",
+    "qwerty",
+    "admin",
+    "abc"
+];
+
+function checkPassword() {
+    const pwd = document.getElementById("password").value;
+
+    let score = 0;
+
+    if (pwd.length >= 8) score++;
+    if (pwd.length >= 12) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[a-z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+    let warnings = [];
+
+    commonPatterns.forEach(pattern => {
+        if (pwd.toLowerCase().includes(pattern)) {
+            warnings.push(`Contains common pattern: ${pattern}`);
+        }
+    });
+
+    let percent = Math.min(score * 16, 100);
+
+    const bar = document.getElementById("bar");
+    bar.style.width = percent + "%";
+
+    if (percent < 40)
+        bar.style.background = "red";
+    else if (percent < 70)
+        bar.style.background = "orange";
+    else
+        bar.style.background = "green";
+
+    let strength = "Weak";
+
+    if (score >= 5) strength = "Strong";
+    else if (score >= 3) strength = "Moderate";
+
+    let crackTime = estimateCrackTime(score);
+
+    document.getElementById("results").innerHTML = `
+        <h3>Strength: ${strength}</h3>
+        <p>Score: ${score}/6</p>
+        <p>Estimated Crack Time: ${crackTime}</p>
+        <p>${warnings.join("<br>")}</p>
+    `;
+}
+
+function estimateCrackTime(score) {
+    if (score <= 2) return "Seconds";
+    if (score <= 3) return "Hours";
+    if (score <= 4) return "Weeks";
+    if (score <= 5) return "Years";
+    return "Centuries";
+}
+
+document.getElementById("password")
+.addEventListener("input", checkPassword);
+
+function savePassword() {
+    const pwd = document.getElementById("password").value;
+
+    let history =
+        JSON.parse(localStorage.getItem("passwordHistory")) || [];
+
+    if (history.includes(pwd)) {
+        alert("Warning: Password reuse detected!");
+        return;
+    }
+
+    history.push(pwd);
+
+    localStorage.setItem(
+        "passwordHistory",
+        JSON.stringify(history)
+    );
+
+    alert("Password saved locally.");
+}
+
+function generatePassphrase() {
+
+    const words = [
+        "rocket",
+        "banana",
+        "forest",
+        "ocean",
+        "tiger",
+        "castle",
+        "planet",
+        "robot"
+    ];
+
+    let passphrase =
+        words[Math.floor(Math.random()*words.length)] + "-" +
+        words[Math.floor(Math.random()*words.length)] + "-" +
+        words[Math.floor(Math.random()*words.length)] +
+        Math.floor(Math.random()*100);
+
+    document.getElementById("passphrase").innerText =
+        passphrase;
+}
+
+</script>
+
+</body>
+</html>
