@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Behavioral Biometric Login</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            width: 350px;
+            text-align: center;
+        }
+        input[type="password"] {
+            width: 90%;
+            padding: 10px;
+            margin: 15px 0;
+            border: 1px solid #444;
+            border-radius: 5px;
+            background-color: #2a2a2a;
+            color: white;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        #saveBtn { background-color: #3498db; color: white; }
+        #saveBtn:hover { background-color: #2980b9; }
+        #loginBtn { background-color: #2ecc71; color: white; }
+        #loginBtn:hover { background-color: #27ae60; }
+        
+        .meter-bg {
+            width: 100%;
+            height: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        .meter-fill {
+            height: 100%;
+            width: 0%;
+            background-color: red;
+            transition: width 0.5s ease, background-color 0.5s ease;
+        }
+        #status {
+            margin-top: 15px;
+            font-weight: bold;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Biometric Login Demo</h2>
+    <p style="font-size: 0.8em; color: #aaa;">Type a password to save your habits, then try to replicate them.</p>
+    
+    <input type="password" id="passInput" autocomplete="off" placeholder="Type password...">
+    
+    <div>
+        <button id="saveBtn">Save Profile</button>
+        <button id="loginBtn">Test Login</button>
+    </div>
+
+    <div class="meter-bg">
+        <div class="meter-fill" id="meterFill"></div>
+    </div>
+    <p>Confidence: <span id="confidenceText">0</span>%</p>
+    <p id="status"></p>
+</div>
+
+<script>
+    // System State
+    let savedProfile = null;
+    let activeKeys = {};
+    let lastMousePos = null;
+    
+    // Current recording session
+    let currentMetrics = resetMetrics();
+
+    // DOM Elements
+    const input = document.getElementById('passInput');
+    const saveBtn = document.getElementById('saveBtn');
+    const loginBtn = document.getElementById('loginBtn');
+    const meterFill = document.getElementById('meterFill');
+    const confidenceText = document.getElementById('confidenceText');
+    const statusText = document.getElementById('status');
+
+    function resetMetrics() {
+        return {
+            phrase: "",
+            startTime: null,
+            totalTime: 0,
+            dwellTimes: [],
+            shiftUsed: false,
+            capsUsed: false,
+            mouseDistance: 0
+        };
+    }
+
+    // --- Tracking Logic ---
+    
+    input.addEventListener('focus', () => {
+        currentMetrics = resetMetrics();
+        input.value = "";
+        statusText.innerText = "";
+        meterFill.style.width = "0%";
+        confidenceText.innerText = "0";
+    });
+
+    input.addEventListener('keydown', (e) => {
+        // Start timer on first keypress
+        if (!currentMetrics.startTime) currentMetrics.startTime = performance.now();
+        
+        // Track key hold time (Dwell)
+        if (!activeKeys[e.code]) activeKeys[e.code] = performance.now();
+        
+        // Track modifiers
+        if (e.shiftKey) currentMetrics.shiftUsed = true;
+        if (e.getModifierState && e.getModifierState('CapsLock')) currentMetrics.capsUsed = true;
+    });
+
+    input.addEventListener('keyup', (e) => {
+        // Calculate how long this specific key was held
+        if (activeKeys[e.code]) {
+            let dwell = performance.now() - activeKeys[e.code];
+            currentMetrics.dwellTimes.push(dwell);
+            delete activeKeys[e.code];
+        }
+        currentMetrics.phrase = input.value;
+        currentMetrics.totalTime = performance.now() - currentMetrics.startTime;
+    });
+
+    // Track mouse movement over the whole window while input is focused
+    window.addEventListener('mousemove', (e) => {
+        if (document.activeElement === input) {
+            if (lastMousePos) {
+                let dx = e.clientX - lastMousePos.x;
+                let dy = e.clientY - lastMousePos.y;
+                currentMetrics.mouseDistance += Math.sqrt(dx*dx + dy*dy);
+            }
+            lastMousePos = { x: e.clientX, y: e.clientY };
+        } else {
+            lastMousePos = null;
+        }
+    });
+
+    // --- Action Buttons ---
+
+    saveBtn.addEventListener('click', () => {
+        if (currentMetrics.phrase.length < 4) {
+            statusText.innerText = "Password too short to profile!";
+            statusText.style.color = "orange";
+            return;
+        }
+        
+        // Calculate average dwell time
+        let totalDwell = currentMetrics.dwellTimes.reduce((a, b) => a + b, 0);
+        currentMetrics.avgDwell = totalDwell / currentMetrics.dwellTimes.length;
+        
+        // Save deeply cloned profile
+        savedProfile = JSON.parse(JSON.stringify(currentMetrics));
+        
+        statusText.innerText = "Profile & Habits Saved!";
+        statusText.style.color = "#3498db";
+        input.value = "";
+    });
+
+    loginBtn.addEventListener('click', () => {
+        if (!savedProfile) {
+            statusText.innerText = "Save a profile first!";
+            statusText.style.color = "orange";
+            return;
+        }
+
+        // Calculate average dwell time for current attempt
+        let totalDwell = currentMetrics.dwellTimes.reduce((a, b) => a + b, 0);
+        currentMetrics.avgDwell = totalDwell / currentMetrics.dwellTimes.length;
+
+        let confidence = calculateMatch(savedProfile, currentMetrics);
+        
+        // Update UI
+        confidenceText.innerText = confidence.toFixed(1);
+        meterFill.style.width = confidence + "%";
+        
+        if (confidence === 0) {
+            meterFill.style.backgroundColor = "red";
+            statusText.innerText = "Access Denied: Incorrect Password.";
+            statusText.style.color = "red";
+        } else if (confidence >= 80) {
+            meterFill.style.backgroundColor = "#2ecc71"; // Green
+            statusText.innerText = "Access Granted: Habits Match!";
+            statusText.style.color = "#2ecc71";
+        } else {
+            meterFill.style.backgroundColor = "#e74c3c"; // Red
+            statusText.innerText = `Access Denied: Unrecognized Behavior.`;
+            statusText.style.color = "#e74c3c";
+        }
+    });
+
+    // --- Comparison Algorithm ---
+
+    function calculateMatch(saved, attempt) {
+        // 1. Password must be an exact match, otherwise 0% instantly.
+        if (saved.phrase !== attempt.phrase) return 0;
+
+        let score = 100;
+
+        // 2. Total Typing Speed Check (Tolerance: 30% penalty max)
+        let timeDiff = Math.abs(saved.totalTime - attempt.totalTime);
+        let timePenalty = Math.min((timeDiff / saved.totalTime) * 100, 30);
+        score -= timePenalty;
+
+        // 3. Average Key Hold (Dwell) Check (Tolerance: 30% penalty max)
+        let dwellDiff = Math.abs(saved.avgDwell - attempt.avgDwell);
+        let dwellPenalty = Math.min((dwellDiff / saved.avgDwell) * 100, 30);
+        score -= dwellPenalty;
+
+        // 4. Modifier Match Check (15% penalty each)
+        if (saved.shiftUsed !== attempt.shiftUsed) score -= 15;
+        if (saved.capsUsed !== attempt.capsUsed) score -= 15;
+
+        // 5. Mouse Distance Check (10% penalty max)
+        let mouseDiff = Math.abs(saved.mouseDistance - attempt.mouseDistance);
+        let baseMouse = saved.mouseDistance > 0 ? saved.mouseDistance : 1;
+        let mousePenalty = Math.min((mouseDiff / baseMouse) * 100, 10);
+        score -= mousePenalty;
+
+        return Math.max(0, score);
+    }
+</script>
+
+</body>
+</html>
