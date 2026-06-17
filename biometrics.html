@@ -3,362 +3,238 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Biometric Authentication</title>
+    <title>Biometric Keystroke Authentication</title>
     <style>
-        :root {
-            --bg: #0a0f1c; --card: #151e32; --text: #e2e8f0; --muted: #64748b;
-            --primary: #6366f1; --success: #22c55e; --danger: #ef4444; --border: #334155;
-            --warning: #eab308;
-        }
+        * { box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background-color: var(--bg); color: var(--text);
-            display: flex; justify-content: center; align-items: center;
-            height: 100vh; margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
         }
-        .container {
-            background: var(--card); padding: 40px; border-radius: 16px;
-            width: 450px; text-align: center; border: 1px solid var(--border);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+        .card {
+            background: #ffffff;
+            padding: 40px 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            width: 360px;
+            text-align: center;
         }
-        .view { display: none; flex-direction: column; gap: 15px; }
-        .view.active { display: flex; animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-        h2 { margin: 0; font-weight: 600; letter-spacing: -0.5px; }
-        p { color: var(--muted); font-size: 14px; margin: 5px 0 15px 0; line-height: 1.5; }
-        .target-phrase { 
-            background: #0f172a; padding: 15px; border-radius: 8px; 
-            font-family: monospace; font-size: 16px; color: var(--primary); font-weight: bold;
-            border: 1px solid var(--border); margin-bottom: 15px;
+        h2 { margin-top: 0; color: #333; font-size: 24px; }
+        p { color: #666; font-size: 14px; line-height: 1.5; }
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            margin: 20px 0 10px 0;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
         }
-        input[type="text"], input[type="password"] {
-            width: 100%; padding: 14px; border: 2px solid var(--border);
-            border-radius: 8px; background: #0f172a; color: white;
-            font-size: 16px; box-sizing: border-box; outline: none; transition: 0.2s;
+        input[type="password"]:focus {
+            border-color: #007bff;
+            outline: none;
         }
-        input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
-        .error-shake { animation: shake 0.4s; border-color: var(--danger) !important; color: var(--danger); }
-        button {
-            padding: 14px; border: none; border-radius: 8px; font-weight: bold; font-size: 15px;
-            cursor: pointer; color: white; background: var(--primary); width: 100%; transition: 0.2s;
+        .instructions-hint {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 10px;
         }
-        button:hover { background: #4f46e5; }
-        .progress-container { display: flex; gap: 5px; margin-bottom: 15px; }
-        .step-dot { height: 8px; flex: 1; background: var(--border); border-radius: 4px; transition: 0.3s; }
-        .step-dot.active { background: var(--primary); }
-        .step-dot.done { background: var(--success); }
-        .report {
-            background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239,68,68,0.3);
-            border-radius: 8px; padding: 15px; text-align: left; font-size: 13px; color: #fca5a5;
+        .status-msg {
+            font-weight: 600;
+            margin-top: 15px;
+            min-height: 20px;
         }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .hidden { display: none; }
+        
+        /* Fixed corner Reset Button */
+        .reset-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .reset-btn:hover { background-color: #5a6268; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    
-    <div id="view-init" class="view active">
-        <h2>Secure Enrollment</h2>
-        <p>To ensure 100% accurate identification, we first need to learn your global typing habits before setting a password.</p>
-        <button onclick="startEnrollment()">Begin Biometric Scan</button>
+<button class="reset-btn" onclick="resetProgram()">Reset Program</button>
+
+<div class="card">
+    <div id="enroll-section">
+        <h2>Phase 1: Enrollment</h2>
+        <p id="enroll-instructions">Create your password. You will need to type it 3 times to train the biometric system.</p>
+        <input type="password" id="enroll-input" placeholder="Type password..." autocomplete="off">
+        <div class="instructions-hint">Press <strong>Enter</strong> to submit each attempt</div>
+        <p id="enroll-status" class="status-msg error"></p>
     </div>
 
-    <div id="view-train" class="view">
-        <h2 id="trainTitle">Phase 1: Global Habits</h2>
-        <p id="trainDesc">Type the phrase below exactly as shown. Do not use backspace.</p>
-        
-        <div class="progress-container" id="progressDots"></div>
-        
-        <div class="target-phrase" id="displayPhrase">loading...</div>
-        <input type="text" id="trainInput" autocomplete="off" spellcheck="false" placeholder="Type here...">
-        <p id="errorMsg" style="color: var(--danger); display: none; font-weight: bold;">Mistake detected. Try again.</p>
+    <div id="verify-section" class="hidden">
+        <h2>Phase 2: Biometric Login</h2>
+        <p>Type your password. The system will verify your unique typing cadence and reaction patterns.</p>
+        <input type="password" id="verify-input" placeholder="Verify password..." autocomplete="off">
+        <div class="instructions-hint">Press <strong>Enter</strong> to log in</div>
+        <p id="verify-status" class="status-msg"></p>
     </div>
-
-    <div id="view-setpass" class="view">
-        <h2>Phase 2: Target Protocol</h2>
-        <p>Your global profile is saved. Now, invent the specific password you wish to protect.</p>
-        <input type="text" id="customPassword" autocomplete="off" placeholder="Enter target password...">
-        <button onclick="startPasswordTraining()">Set and Train Password</button>
-    </div>
-
-    <div id="view-login" class="view">
-        <h2>Authentication</h2>
-        <p>Enter your password. The system will verify your global rhythm and specific signature.</p>
-        <input type="password" id="loginInput" autocomplete="off" placeholder="Password...">
-        <div id="authStatus" style="margin-top: 10px; font-weight: bold; font-size: 18px;"></div>
-    </div>
-
 </div>
 
 <script>
-    /** SYSTEM CONFIGURATION */
-    const GENERAL_PHRASES = [
-        "the quick brown fox",
-        "to be or not to be",
-        "a journey of a thousand miles"
-    ];
-    const PASS_REPETITIONS = 3; 
-    
-    // Variance floors (Human limiters to prevent False Rejections)
-    const MIN_DWELL_STD = 35;  // Humans naturally vary by ~35ms holding keys
-    const MIN_FLIGHT_STD = 45; // Humans naturally vary by ~45ms between keys
+    const REQUIRED_ENROLLMENTS = 3;
+    // Permissible variance threshold (0.40 means biometric metrics can vary up to 40% from the mean)
+    const BIOMETRIC_THRESHOLD = 0.40; 
 
-    /** STATE */
-    let currentPhase = 'general'; // 'general' or 'password'
-    let stepIndex = 0;
-    let targetPassword = "";
-    
-    let rawGeneralData = [];
-    let rawPasswordData = [];
-    let model = { global: {}, specific: {} };
+    let enrolledPassword = "";
+    let enrollmentProfiles = []; // Array to hold { reactionTime, typingDuration }
+    let averageBiometrics = { reactionTime: 0, typingDuration: 0 };
 
-    let keyEvents = [];
-    let hasMistake = false;
+    // Timing tracking states
+    let focusTime = 0;
+    let startTime = 0;
+    let isTyping = false;
 
-    /** DOM ELEMENTS */
-    const views = {
-        init: document.getElementById('view-init'),
-        train: document.getElementById('view-train'),
-        setpass: document.getElementById('view-setpass'),
-        login: document.getElementById('view-login')
+    // DOM Elements
+    const enrollSection = document.getElementById('enroll-section');
+    const verifySection = document.getElementById('verify-section');
+    const enrollInput = document.getElementById('enroll-input');
+    const verifyInput = document.getElementById('verify-input');
+    const enrollInstructions = document.getElementById('enroll-instructions');
+    const enrollStatus = document.getElementById('enroll-status');
+    const verifyStatus = document.getElementById('verify-status');
+
+    // Setup performance telemetry tracking on inputs
+    function attachBiometricTracker(inputElement, onSubmitCallback) {
+        inputElement.addEventListener('focus', () => {
+            if (!isTyping) {
+                focusTime = performance.now();
+            }
+        });
+
+        inputElement.addEventListener('keydown', (e) => {
+            // Mark the exact millisecond typing starts (Reaction Time finishes)
+            if (!isTyping && e.key !== 'Enter') {
+                startTime = performance.now();
+                isTyping = true;
+            }
+
+            // Capture submission data on Enter key
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const endTime = performance.now();
+                
+                const typingDuration = isTyping ? (endTime - startTime) : 0;
+                const reactionTime = startTime - focusTime;
+
+                // Reset state variables for next evaluation
+                isTyping = false;
+                const typedValue = inputElement.value;
+                inputElement.value = "";
+                focusTime = performance.now(); // reset anchor time for subsequent attempts
+
+                onSubmitCallback(typedValue, reactionTime, typingDuration);
+            }
+        });
+    }
+
+    // Handle Enrollment Inputs
+    attachBiometricTracker(enrollInput, (password, reactionTime, typingDuration) => {
+        if (!password) return;
+
+        // Establish the baseline text string on the first attempt
+        if (enrollmentProfiles.length === 0) {
+            enrolledPassword = password;
+        } else if (password !== enrolledPassword) {
+            enrollStatus.textContent = "Error: Password string mismatch. Use the exact same password text.";
+            return;
+        }
+        enrollStatus.textContent = "";
+
+        // Record the telemetry metrics
+        enrollmentProfiles.push({ reactionTime, typingDuration });
+
+        if (enrollmentProfiles.length < REQUIRED_ENROLLMENTS) {
+            enrollInstructions.innerHTML = `Confirm profile baseline. <br><strong>Attempt ${enrollmentProfiles.length + 1} of ${REQUIRED_ENROLLMENTS}</strong>`;
+        } else {
+            // Process profiling averages
+            const sumReaction = enrollmentProfiles.reduce((acc, curr) => acc + curr.reactionTime, 0);
+            const sumDuration = enrollmentProfiles.reduce((acc, curr) => acc + curr.typingDuration, 0);
+            
+            averageBiometrics.reactionTime = sumReaction / REQUIRED_ENROLLMENTS;
+            averageBiometrics.typingDuration = sumDuration / REQUIRED_ENROLLMENTS;
+
+            // Transition UI views
+            enrollSection.classList.add('hidden');
+            verifySection.classList.remove('hidden');
+            verifyInput.focus();
+            focusTime = performance.now(); // establish clean focus state anchor
+        }
+    });
+
+    // Handle Verification Checks
+    attachBiometricTracker(verifyInput, (password, reactionTime, typingDuration) => {
+        if (!password) return;
+        verifyStatus.className = "status-msg"; // reset message classes
+
+        // Criterion 1: String Validation
+        if (password !== enrolledPassword) {
+            verifyStatus.textContent = "Rejected: Incorrect password text string.";
+            verifyStatus.classList.add("error");
+            return;
+        }
+
+        // Criterion 2 & 3: Biometric Variance (Reaction Speed & Flight Typing Cadence Duration)
+        const reactionVariance = Math.abs(reactionTime - averageBiometrics.reactionTime) / averageBiometrics.reactionTime;
+        const durationVariance = Math.abs(typingDuration - averageBiometrics.typingDuration) / averageBiometrics.typingDuration;
+
+        // Logging biometric variance values to developer console for tracking accuracy
+        console.log(`Metrics Deviation -> Reaction: ${(reactionVariance * 100).toFixed(1)}%, Typing Rate: ${(durationVariance * 100).toFixed(1)}%`);
+
+        if (reactionVariance <= BIOMETRIC_THRESHOLD && durationVariance <= BIOMETRIC_THRESHOLD) {
+            verifyStatus.textContent = "Accepted! Identity and Biometrics match.";
+            verifyStatus.classList.add("success");
+        } else {
+            verifyStatus.textContent = "Rejected: Biometric profile signature mismatch. Try again.";
+            verifyStatus.classList.add("error");
+        }
+    });
+
+    // Global Reset Feature
+    function resetProgram() {
+        enrolledPassword = "";
+        enrollmentProfiles = [];
+        averageBiometrics = { reactionTime: 0, typingDuration: 0 };
+        isTyping = false;
+
+        enrollInput.value = "";
+        verifyInput.value = "";
+        enrollStatus.textContent = "";
+        verifyStatus.textContent = "";
+        verifyStatus.className = "status-msg";
+        enrollInstructions.innerHTML = "Create your password. You will need to type it 3 times to train the biometric system.";
+
+        verifySection.classList.add('hidden');
+        enrollSection.classList.remove('hidden');
+        enrollInput.focus();
+        focusTime = performance.now();
+    }
+
+    // Auto-initialize focus parameters upon launch
+    window.onload = () => {
+        enrollInput.focus();
+        focusTime = performance.now();
     };
-
-    function switchView(viewName) {
-        Object.values(views).forEach(v => v.classList.remove('active'));
-        views[viewName].classList.add('active');
-        keyEvents = []; hasMistake = false;
-    }
-
-    /** UI ROUTING & SETUP */
-    function startEnrollment() {
-        switchView('train');
-        setupTrainingStep();
-    }
-
-    function startPasswordTraining() {
-        const pass = document.getElementById('customPassword').value.trim();
-        if (pass.length < 6) return alert("Password must be at least 6 characters.");
-        targetPassword = pass;
-        currentPhase = 'password';
-        stepIndex = 0;
-        switchView('train');
-        setupTrainingStep();
-    }
-
-    function setupTrainingStep() {
-        const input = document.getElementById('trainInput');
-        const phraseContainer = document.getElementById('displayPhrase');
-        const dotsContainer = document.getElementById('progressDots');
-        
-        input.value = "";
-        input.type = currentPhase === 'general' ? "text" : "password";
-        keyEvents = [];
-        hasMistake = false;
-
-        let totalSteps = currentPhase === 'general' ? GENERAL_PHRASES.length : PASS_REPETITIONS;
-        
-        // Setup UI texts
-        if (currentPhase === 'general') {
-            document.getElementById('trainTitle').innerText = "Phase 1: Global Habits";
-            phraseContainer.innerText = GENERAL_PHRASES[stepIndex];
-        } else {
-            document.getElementById('trainTitle').innerText = "Phase 2: Specific Signature";
-            document.getElementById('trainDesc').innerText = `Type your password to build its specific profile.`;
-            phraseContainer.innerText = targetPassword; // Kept visible for training
-        }
-
-        // Render progress dots
-        dotsContainer.innerHTML = "";
-        for(let i=0; i<totalSteps; i++) {
-            let dot = document.createElement('div');
-            dot.className = `step-dot ${i < stepIndex ? 'done' : i === stepIndex ? 'active' : ''}`;
-            dotsContainer.appendChild(dot);
-        }
-        
-        input.focus();
-    }
-
-    /** TYPING ENGINE (Core Data Collector) */
-    function attachTypingEngine(inputId, isTraining) {
-        const input = document.getElementById(inputId);
-        
-        input.addEventListener('keydown', (e) => {
-            if (['Shift', 'CapsLock', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
-            
-            // Reject backspaces strictly to keep data clean
-            if (e.key === 'Backspace') {
-                triggerError(input);
-                return;
-            }
-
-            keyEvents.push({ key: e.key, type: 'down', time: performance.now(), idx: input.value.length });
-        });
-
-        input.addEventListener('keyup', (e) => {
-            if (['Shift', 'CapsLock', 'Control', 'Alt', 'Meta', 'Backspace'].includes(e.key)) return;
-            
-            let targetIdx = input.value.length - 1;
-            keyEvents.push({ key: e.key, type: 'up', time: performance.now(), idx: targetIdx });
-
-            // Evaluate completion
-            let targetText = isTraining ? 
-                (currentPhase === 'general' ? GENERAL_PHRASES[stepIndex] : targetPassword) 
-                : targetPassword;
-
-            if (input.value === targetText) {
-                if (hasMistake) return triggerError(input);
-                
-                const metrics = processKeystrokes(keyEvents, targetText);
-                
-                if (isTraining) {
-                    if (currentPhase === 'general') rawGeneralData.push(metrics);
-                    else rawPasswordData.push(metrics);
-                    
-                    stepIndex++;
-                    let totalSteps = currentPhase === 'general' ? GENERAL_PHRASES.length : PASS_REPETITIONS;
-                    
-                    if (stepIndex >= totalSteps) {
-                        if (currentPhase === 'general') switchView('setpass');
-                        else {
-                            buildMathematicalModel();
-                            switchView('login');
-                        }
-                    } else {
-                        setupTrainingStep();
-                    }
-                } else {
-                    executeAuthentication(metrics);
-                }
-            } else if (isTraining && !targetText.startsWith(input.value)) {
-                // Typo detected mid-stream
-                triggerError(input);
-            }
-        });
-    }
-
-    function triggerError(input) {
-        hasMistake = true;
-        input.classList.add('error-shake');
-        document.getElementById('errorMsg').style.display = "block";
-        setTimeout(() => {
-            input.value = "";
-            input.classList.remove('error-shake');
-            document.getElementById('errorMsg').style.display = "none";
-            keyEvents = [];
-            hasMistake = false;
-        }, 600);
-    }
-
-    attachTypingEngine('trainInput', true);
-    attachTypingEngine('loginInput', false);
-
-    /** MATH & DATA PROCESSING */
-    function processKeystrokes(events, phrase) {
-        let dwells = []; // Time holding a specific key
-        let flights = []; // Time between releasing one key and pressing next
-        let digraphs = {}; // Time between pressing key 1 and pressing key 2
-
-        for (let i = 0; i < phrase.length; i++) {
-            let down = events.find(e => e.idx === i && e.type === 'down');
-            let up = events.find(e => e.idx === i && e.type === 'up');
-            if (down && up) dwells.push(up.time - down.time);
-            
-            if (i > 0) {
-                let prevDown = events.find(e => e.idx === i-1 && e.type === 'down');
-                let prevUp = events.find(e => e.idx === i-1 && e.type === 'up');
-                if (prevUp && down) flights.push(down.time - prevUp.time);
-                if (prevDown && down) {
-                    let pair = phrase[i-1] + phrase[i];
-                    digraphs[pair] = down.time - prevDown.time;
-                }
-            }
-        }
-        return { dwells, flights, digraphs };
-    }
-
-    function calcStats(arr, minFloor) {
-        if (!arr || arr.length === 0) return { mean: 0, std: minFloor };
-        const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
-        const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / arr.length;
-        // THIS IS THE FIX: Never let standard deviation drop below human biological limits.
-        return { mean, std: Math.max(Math.sqrt(variance), minFloor) };
-    }
-
-    function buildMathematicalModel() {
-        // 1. Build Global Model (Average overall typing weight and speed)
-        let allGlobalDwells = rawGeneralData.flatMap(d => d.dwells);
-        let allGlobalFlights = rawGeneralData.flatMap(d => d.flights);
-        
-        model.global.avgDwell = calcStats(allGlobalDwells, MIN_DWELL_STD);
-        model.global.avgFlight = calcStats(allGlobalFlights, MIN_FLIGHT_STD);
-
-        // 2. Build Specific Password Model (Positional data)
-        model.specific.dwells = [];
-        model.specific.flights = [];
-        
-        for (let i = 0; i < targetPassword.length; i++) {
-            let posDwells = rawPasswordData.map(d => d.dwells[i]);
-            model.specific.dwells.push(calcStats(posDwells, MIN_DWELL_STD));
-        }
-        for (let i = 0; i < targetPassword.length - 1; i++) {
-            let posFlights = rawPasswordData.map(d => d.flights[i]);
-            model.specific.flights.push(calcStats(posFlights, MIN_FLIGHT_STD));
-        }
-    }
-
-    /** THE AUTHENTICATION ALGORITHM */
-    function executeAuthentication(attempt) {
-        const authStatus = document.getElementById('authStatus');
-        const loginInput = document.getElementById('loginInput');
-        
-        // Z-Score: How many standard deviations away from the mean is this attempt?
-        function getZ(val, stats) {
-            return Math.abs(val - stats.mean) / stats.std;
-        }
-
-        let zScores = [];
-
-        // 1. Verify Global Rhythm (Are they generally striking keys like the owner?)
-        let attemptAvgDwell = attempt.dwells.reduce((a,b)=>a+b,0) / attempt.dwells.length;
-        let attemptAvgFlight = attempt.flights.reduce((a,b)=>a+b,0) / attempt.flights.length;
-        
-        zScores.push(getZ(attemptAvgDwell, model.global.avgDwell));
-        zScores.push(getZ(attemptAvgFlight, model.global.avgFlight));
-
-        // 2. Verify Specific Rhythm (Are they timing the exact password right?)
-        for(let i=0; i<model.specific.dwells.length; i++) {
-            zScores.push(getZ(attempt.dwells[i], model.specific.dwells[i]));
-        }
-        for(let i=0; i<model.specific.flights.length; i++) {
-            zScores.push(getZ(attempt.flights[i], model.specific.flights[i]));
-        }
-
-        // 3. Final Scoring calculation
-        // Calculate average Z-Score across all tracked metrics
-        let avgZ = zScores.reduce((a,b)=>a+b,0) / zScores.length;
-        
-        // Convert Z-score to Confidence %. 
-        // An avg Z of 0 = 100%. An avg Z of 2.5 = 0% confidence.
-        let confidence = Math.max(0, 100 - (avgZ * 40)); 
-
-        // Output Result
-        loginInput.disabled = true;
-        if (confidence >= 65) { // 65% is a very safe, realistic threshold for hybrid data
-            authStatus.innerHTML = `✅ ACCESS GRANTED<br><span style="font-size:14px; color:var(--success)">Confidence: ${confidence.toFixed(1)}% (Bio-Match Found)</span>`;
-            authStatus.style.color = "var(--success)";
-            setTimeout(() => { location.reload(); }, 3000); // Reset after success
-        } else {
-            authStatus.innerHTML = `❌ ACCESS DENIED<br><span style="font-size:14px; color:var(--danger)">Confidence: ${confidence.toFixed(1)}% (Imposter Rhythm Detected)</span>`;
-            authStatus.style.color = "var(--danger)";
-            setTimeout(() => {
-                loginInput.disabled = false;
-                loginInput.value = "";
-                loginInput.focus();
-                authStatus.innerHTML = "";
-            }, 2500);
-        }
-    }
 </script>
 
 </body>
