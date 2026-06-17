@@ -3,249 +3,439 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Behavioral Biometric Login</title>
+    <title>Advanced Biometric Authentication</title>
     <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --border: #334155;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
         }
-        .container {
-            background-color: #1e1e1e;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            width: 350px;
+
+        .app-container {
+            background-color: var(--card-bg);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 400px;
             text-align: center;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
         }
+
+        .view {
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        h2 { margin: 0 0 5px 0; font-size: 24px; }
+        p.subtitle { color: var(--text-muted); font-size: 14px; margin: 0 0 20px 0; }
+
         input[type="password"] {
-            width: 90%;
-            padding: 10px;
-            margin: 15px 0;
-            border: 1px solid #444;
-            border-radius: 5px;
-            background-color: #2a2a2a;
+            width: 100%;
+            padding: 12px;
+            box-sizing: border-box;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background-color: #0f172a;
             color: white;
             font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
         }
+        input[type="password"]:focus { border-color: var(--primary); }
+
         button {
-            padding: 10px 15px;
-            margin: 5px;
+            padding: 12px;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
-            font-weight: bold;
-            transition: 0.2s;
+            transition: all 0.2s;
+            color: white;
+            width: 100%;
         }
-        #saveBtn { background-color: #3498db; color: white; }
-        #saveBtn:hover { background-color: #2980b9; }
-        #loginBtn { background-color: #2ecc71; color: white; }
-        #loginBtn:hover { background-color: #27ae60; }
-        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary { background-color: var(--primary); }
+        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
+        .btn-reaction { background-color: var(--border); border: 2px dashed #64748b; }
+        .btn-danger { background-color: var(--danger); }
+        .btn-danger:hover { background-color: #dc2626; }
+        .btn-outline { background-color: transparent; border: 1px solid var(--text-muted); }
+        .btn-outline:hover { background-color: var(--border); }
+
+        .meter-container {
+            margin-top: 15px;
+            display: none;
+        }
         .meter-bg {
             width: 100%;
-            height: 20px;
-            background-color: #333;
-            border-radius: 10px;
-            margin-top: 20px;
+            height: 12px;
+            background-color: var(--border);
+            border-radius: 6px;
             overflow: hidden;
+            position: relative;
         }
         .meter-fill {
             height: 100%;
             width: 0%;
-            background-color: red;
-            transition: width 0.5s ease, background-color 0.5s ease;
+            background-color: var(--primary);
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.8s;
         }
-        #status {
-            margin-top: 15px;
+        .score-text {
+            font-size: 14px;
             font-weight: bold;
-            min-height: 20px;
+            margin-top: 5px;
+            display: block;
+        }
+
+        .fail-reasons {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: left;
+            font-size: 14px;
+            color: #fca5a5;
+        }
+        .fail-reasons ul { padding-left: 20px; margin: 5px 0 0 0; }
+
+        .icon { font-size: 48px; margin-bottom: 10px; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Biometric Login Demo</h2>
-    <p style="font-size: 0.8em; color: #aaa;">Type a password to save your habits, then try to replicate them.</p>
+<div class="app-container">
     
-    <input type="password" id="passInput" autocomplete="off" placeholder="Type password...">
-    
-    <div>
-        <button id="saveBtn">Save Profile</button>
-        <button id="loginBtn">Test Login</button>
+    <div id="view-setup" class="view active">
+        <h2>System Registration</h2>
+        <p class="subtitle">Type a password and complete the reaction test to set your baseline.</p>
+        
+        <input type="password" id="setupInput" autocomplete="off" placeholder="Enter new password...">
+        
+        <button id="setupReactionBtn" class="btn-reaction">Step 1: Test Reaction Time</button>
+        <button id="saveBtn" class="btn-primary" disabled>Step 2: Save Profile</button>
     </div>
 
-    <div class="meter-bg">
-        <div class="meter-fill" id="meterFill"></div>
+    <div id="view-login" class="view">
+        <h2>Authentication</h2>
+        <p class="subtitle">Match your original typing rhythm and reaction time to gain access.</p>
+        
+        <input type="password" id="loginInput" autocomplete="off" placeholder="Enter password...">
+        
+        <button id="loginReactionBtn" class="btn-reaction">Step 1: Test Reaction Time</button>
+        <button id="loginBtn" class="btn-primary" disabled>Step 2: Authenticate</button>
+
+        <div id="meterContainer" class="meter-container">
+            <div class="meter-bg"><div id="meterFill" class="meter-fill"></div></div>
+            <span class="score-text">Confidence: <span id="confidenceText">0</span>%</span>
+        </div>
     </div>
-    <p>Confidence: <span id="confidenceText">0</span>%</p>
-    <p id="status"></p>
+
+    <div id="view-success" class="view">
+        <div class="icon">✅</div>
+        <h2 style="color: var(--success);">Access Granted</h2>
+        <p class="subtitle">Identity verified. Your behavior matches the saved profile.</p>
+        <button onclick="resetSystem()" class="btn-outline" style="margin-top: 20px;">Hard Reset System</button>
+    </div>
+
+    <div id="view-fail" class="view">
+        <div class="icon">❌</div>
+        <h2 style="color: var(--danger);">Access Denied</h2>
+        <p class="subtitle">Behavioral mismatch detected.</p>
+        
+        <div class="fail-reasons">
+            <strong>Anomaly Report:</strong>
+            <ul id="reasonsList"></ul>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button onclick="switchView('view-login')" class="btn-primary">Try Again</button>
+            <button onclick="resetSystem()" class="btn-danger">Hard Reset</button>
+        </div>
+    </div>
+
 </div>
 
 <script>
-    // System State
+    // --- System State & Memory ---
     let savedProfile = null;
     let activeKeys = {};
-    let lastMousePos = null;
+    let reactionTimer = null;
+    let reactionStartTime = 0;
     
-    // Current recording session
-    let currentMetrics = resetMetrics();
+    let currentMetrics = createEmptyMetrics();
 
-    // DOM Elements
-    const input = document.getElementById('passInput');
-    const saveBtn = document.getElementById('saveBtn');
-    const loginBtn = document.getElementById('loginBtn');
-    const meterFill = document.getElementById('meterFill');
-    const confidenceText = document.getElementById('confidenceText');
-    const statusText = document.getElementById('status');
-
-    function resetMetrics() {
+    function createEmptyMetrics() {
         return {
             phrase: "",
             startTime: null,
             totalTime: 0,
             dwellTimes: [],
+            avgDwell: 0,
             shiftUsed: false,
             capsUsed: false,
-            mouseDistance: 0
+            reactionTime: null
         };
     }
 
-    // --- Tracking Logic ---
-    
-    input.addEventListener('focus', () => {
-        currentMetrics = resetMetrics();
-        input.value = "";
-        statusText.innerText = "";
-        meterFill.style.width = "0%";
-        confidenceText.innerText = "0";
-    });
-
-    input.addEventListener('keydown', (e) => {
-        // Start timer on first keypress
-        if (!currentMetrics.startTime) currentMetrics.startTime = performance.now();
+    // --- Core Navigation ---
+    function switchView(viewId) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
         
-        // Track key hold time (Dwell)
-        if (!activeKeys[e.code]) activeKeys[e.code] = performance.now();
+        // Reset inputs and metrics on view switch
+        currentMetrics = createEmptyMetrics();
+        activeKeys = {};
         
-        // Track modifiers
-        if (e.shiftKey) currentMetrics.shiftUsed = true;
-        if (e.getModifierState && e.getModifierState('CapsLock')) currentMetrics.capsUsed = true;
-    });
-
-    input.addEventListener('keyup', (e) => {
-        // Calculate how long this specific key was held
-        if (activeKeys[e.code]) {
-            let dwell = performance.now() - activeKeys[e.code];
-            currentMetrics.dwellTimes.push(dwell);
-            delete activeKeys[e.code];
+        if(viewId === 'view-setup') {
+            document.getElementById('setupInput').value = "";
+            resetReactionButton('setupReactionBtn');
+            document.getElementById('saveBtn').disabled = true;
+        } else if (viewId === 'view-login') {
+            document.getElementById('loginInput').value = "";
+            resetReactionButton('loginReactionBtn');
+            document.getElementById('loginBtn').disabled = true;
+            document.getElementById('meterContainer').style.display = 'none';
+            document.getElementById('meterFill').style.width = '0%';
         }
-        currentMetrics.phrase = input.value;
-        currentMetrics.totalTime = performance.now() - currentMetrics.startTime;
-    });
+    }
 
-    // Track mouse movement over the whole window while input is focused
-    window.addEventListener('mousemove', (e) => {
-        if (document.activeElement === input) {
-            if (lastMousePos) {
-                let dx = e.clientX - lastMousePos.x;
-                let dy = e.clientY - lastMousePos.y;
-                currentMetrics.mouseDistance += Math.sqrt(dx*dx + dy*dy);
+    function resetSystem() {
+        savedProfile = null;
+        switchView('view-setup');
+    }
+
+    // --- Reaction Test Logic ---
+    function resetReactionButton(btnId) {
+        const btn = document.getElementById(btnId);
+        btn.dataset.state = 'idle';
+        btn.innerText = 'Step 1: Test Reaction Time';
+        btn.style.backgroundColor = 'var(--border)';
+        btn.style.borderColor = '#64748b';
+        btn.disabled = false;
+        clearTimeout(reactionTimer);
+    }
+
+    function handleReactionClick(btnId, targetBtnId) {
+        const btn = document.getElementById(btnId);
+        const state = btn.dataset.state || 'idle';
+
+        if (state === 'idle') {
+            // Start waiting phase
+            btn.dataset.state = 'waiting';
+            btn.innerText = 'Wait for Green...';
+            btn.style.backgroundColor = 'var(--warning)';
+            btn.style.borderStyle = 'solid';
+            
+            const randomDelay = Math.floor(Math.random() * 2000) + 1000; // 1s to 3s
+            reactionTimer = setTimeout(() => {
+                btn.dataset.state = 'ready';
+                btn.innerText = 'CLICK NOW!';
+                btn.style.backgroundColor = 'var(--success)';
+                reactionStartTime = performance.now();
+            }, randomDelay);
+
+        } else if (state === 'waiting') {
+            // Clicked too early
+            clearTimeout(reactionTimer);
+            btn.innerText = 'Too early! Click to restart.';
+            btn.style.backgroundColor = 'var(--danger)';
+            btn.dataset.state = 'idle';
+
+        } else if (state === 'ready') {
+            // Success
+            const rxnTime = performance.now() - reactionStartTime;
+            currentMetrics.reactionTime = rxnTime;
+            
+            btn.dataset.state = 'done';
+            btn.innerText = `Reaction: ${Math.round(rxnTime)}ms`;
+            btn.style.backgroundColor = 'var(--primary)';
+            btn.disabled = true;
+
+            // Enable the next step button
+            document.getElementById(targetBtnId).disabled = false;
+        }
+    }
+
+    // Bind Reaction Buttons
+    document.getElementById('setupReactionBtn').addEventListener('click', () => handleReactionClick('setupReactionBtn', 'saveBtn'));
+    document.getElementById('loginReactionBtn').addEventListener('click', () => handleReactionClick('loginReactionBtn', 'loginBtn'));
+
+
+    // --- Typing Tracking Logic ---
+    function attachTypingListeners(inputId) {
+        const input = document.getElementById(inputId);
+        
+        input.addEventListener('keydown', (e) => {
+            if (!currentMetrics.startTime) currentMetrics.startTime = performance.now();
+            if (!activeKeys[e.code]) activeKeys[e.code] = performance.now();
+            
+            if (e.shiftKey) currentMetrics.shiftUsed = true;
+            if (e.getModifierState && e.getModifierState('CapsLock')) currentMetrics.capsUsed = true;
+        });
+
+        input.addEventListener('keyup', (e) => {
+            if (activeKeys[e.code]) {
+                let dwell = performance.now() - activeKeys[e.code];
+                currentMetrics.dwellTimes.push(dwell);
+                delete activeKeys[e.code];
             }
-            lastMousePos = { x: e.clientX, y: e.clientY };
-        } else {
-            lastMousePos = null;
-        }
-    });
+            currentMetrics.phrase = input.value;
+            currentMetrics.totalTime = performance.now() - currentMetrics.startTime;
+        });
+    }
 
-    // --- Action Buttons ---
+    attachTypingListeners('setupInput');
+    attachTypingListeners('loginInput');
 
-    saveBtn.addEventListener('click', () => {
+
+    // --- Actions ---
+    document.getElementById('saveBtn').addEventListener('click', () => {
         if (currentMetrics.phrase.length < 4) {
-            statusText.innerText = "Password too short to profile!";
-            statusText.style.color = "orange";
+            alert("Password must be at least 4 characters long.");
             return;
         }
-        
-        // Calculate average dwell time
+
+        // Calculate final baseline metrics
         let totalDwell = currentMetrics.dwellTimes.reduce((a, b) => a + b, 0);
-        currentMetrics.avgDwell = totalDwell / currentMetrics.dwellTimes.length;
+        currentMetrics.avgDwell = totalDwell / (currentMetrics.dwellTimes.length || 1);
         
-        // Save deeply cloned profile
         savedProfile = JSON.parse(JSON.stringify(currentMetrics));
-        
-        statusText.innerText = "Profile & Habits Saved!";
-        statusText.style.color = "#3498db";
-        input.value = "";
+        switchView('view-login');
     });
 
-    loginBtn.addEventListener('click', () => {
-        if (!savedProfile) {
-            statusText.innerText = "Save a profile first!";
-            statusText.style.color = "orange";
+    document.getElementById('loginBtn').addEventListener('click', () => {
+        if (!savedProfile) return;
+
+        // Finalize attempt metrics
+        let totalDwell = currentMetrics.dwellTimes.reduce((a, b) => a + b, 0);
+        currentMetrics.avgDwell = totalDwell / (currentMetrics.dwellTimes.length || 1);
+
+        const result = calculateMatch(savedProfile, currentMetrics);
+        
+        // UI Animation for Meter
+        const meterContainer = document.getElementById('meterContainer');
+        const meterFill = document.getElementById('meterFill');
+        const confText = document.getElementById('confidenceText');
+        
+        document.getElementById('loginBtn').disabled = true;
+        document.getElementById('loginInput').disabled = true;
+        meterContainer.style.display = 'block';
+        
+        // Force reflow to ensure transition plays
+        void meterFill.offsetWidth; 
+        
+        meterFill.style.width = result.score + "%";
+        confText.innerText = result.score.toFixed(1);
+
+        if (result.score >= 80) {
+            meterFill.style.backgroundColor = 'var(--success)';
+            setTimeout(() => {
+                document.getElementById('loginInput').disabled = false;
+                switchView('view-success');
+            }, 1200);
+        } else {
+            meterFill.style.backgroundColor = 'var(--danger)';
+            setTimeout(() => {
+                document.getElementById('loginInput').disabled = false;
+                populateFailReasons(result.reasons);
+                switchView('view-fail');
+            }, 1200);
+        }
+    });
+
+    // --- The Comparison Algorithm ---
+    function calculateMatch(saved, attempt) {
+        let match = { score: 100, reasons: [] };
+
+        // 1. Password Phrase Check
+        if (saved.phrase !== attempt.phrase) {
+            match.score = 0;
+            match.reasons.push("Incorrect password phrase.");
+            return match; // Immediate failure
+        }
+
+        // 2. Typing Speed (Total Time)
+        let timeDiff = Math.abs(saved.totalTime - attempt.totalTime);
+        let timePenalty = Math.min((timeDiff / saved.totalTime) * 100, 35);
+        if (timePenalty > 15) match.reasons.push("Typing rhythm/speed anomaly detected.");
+        match.score -= timePenalty;
+
+        // 3. Key Dwell Time
+        let dwellDiff = Math.abs(saved.avgDwell - attempt.avgDwell);
+        let dwellPenalty = Math.min((dwellDiff / saved.avgDwell) * 100, 25);
+        if (dwellPenalty > 15) match.reasons.push("Key press pressure/hold-time mismatch.");
+        match.score -= dwellPenalty;
+
+        // 4. Modifiers (Caps vs Shift habits)
+        if (saved.shiftUsed !== attempt.shiftUsed) {
+            match.score -= 15;
+            match.reasons.push("Different Shift key usage detected.");
+        }
+        if (saved.capsUsed !== attempt.capsUsed) {
+            match.score -= 15;
+            match.reasons.push("Different CapsLock usage detected.");
+        }
+
+        // 5. Reaction Time Check
+        let rxnDiff = Math.abs(saved.reactionTime - attempt.reactionTime);
+        let rxnPenalty = Math.min((rxnDiff / saved.reactionTime) * 100, 20);
+        if (rxnPenalty > 10) match.reasons.push("Cognitive reaction delay did not match profile.");
+        match.score -= rxnPenalty;
+
+        match.score = Math.max(0, match.score);
+        return match;
+    }
+
+    function populateFailReasons(reasons) {
+        const list = document.getElementById('reasonsList');
+        list.innerHTML = "";
+        
+        if (reasons.length === 0) {
+            list.innerHTML = "<li>Unspecified behavioral anomaly.</li>";
             return;
         }
 
-        // Calculate average dwell time for current attempt
-        let totalDwell = currentMetrics.dwellTimes.reduce((a, b) => a + b, 0);
-        currentMetrics.avgDwell = totalDwell / currentMetrics.dwellTimes.length;
-
-        let confidence = calculateMatch(savedProfile, currentMetrics);
-        
-        // Update UI
-        confidenceText.innerText = confidence.toFixed(1);
-        meterFill.style.width = confidence + "%";
-        
-        if (confidence === 0) {
-            meterFill.style.backgroundColor = "red";
-            statusText.innerText = "Access Denied: Incorrect Password.";
-            statusText.style.color = "red";
-        } else if (confidence >= 80) {
-            meterFill.style.backgroundColor = "#2ecc71"; // Green
-            statusText.innerText = "Access Granted: Habits Match!";
-            statusText.style.color = "#2ecc71";
-        } else {
-            meterFill.style.backgroundColor = "#e74c3c"; // Red
-            statusText.innerText = `Access Denied: Unrecognized Behavior.`;
-            statusText.style.color = "#e74c3c";
-        }
-    });
-
-    // --- Comparison Algorithm ---
-
-    function calculateMatch(saved, attempt) {
-        // 1. Password must be an exact match, otherwise 0% instantly.
-        if (saved.phrase !== attempt.phrase) return 0;
-
-        let score = 100;
-
-        // 2. Total Typing Speed Check (Tolerance: 30% penalty max)
-        let timeDiff = Math.abs(saved.totalTime - attempt.totalTime);
-        let timePenalty = Math.min((timeDiff / saved.totalTime) * 100, 30);
-        score -= timePenalty;
-
-        // 3. Average Key Hold (Dwell) Check (Tolerance: 30% penalty max)
-        let dwellDiff = Math.abs(saved.avgDwell - attempt.avgDwell);
-        let dwellPenalty = Math.min((dwellDiff / saved.avgDwell) * 100, 30);
-        score -= dwellPenalty;
-
-        // 4. Modifier Match Check (15% penalty each)
-        if (saved.shiftUsed !== attempt.shiftUsed) score -= 15;
-        if (saved.capsUsed !== attempt.capsUsed) score -= 15;
-
-        // 5. Mouse Distance Check (10% penalty max)
-        let mouseDiff = Math.abs(saved.mouseDistance - attempt.mouseDistance);
-        let baseMouse = saved.mouseDistance > 0 ? saved.mouseDistance : 1;
-        let mousePenalty = Math.min((mouseDiff / baseMouse) * 100, 10);
-        score -= mousePenalty;
-
-        return Math.max(0, score);
+        reasons.forEach(reason => {
+            let li = document.createElement('li');
+            li.innerText = reason;
+            list.appendChild(li);
+        });
     }
 </script>
 
