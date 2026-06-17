@@ -3,439 +3,358 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Biometric Authentication</title>
+    <title>Statistical Biometric Authentication</title>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --primary: #3b82f6;
-            --primary-hover: #2563eb;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --border: #334155;
+            --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --muted: #94a3b8;
+            --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --border: #334155;
         }
-
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg); color: var(--text);
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; margin: 0;
         }
-
-        .app-container {
-            background-color: var(--card-bg);
-            padding: 40px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            width: 400px;
-            text-align: center;
-            border: 1px solid var(--border);
-            position: relative;
-            overflow: hidden;
+        .container {
+            background: var(--card); padding: 40px; border-radius: 12px;
+            width: 420px; text-align: center; border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-
-        .view {
-            display: none;
-            flex-direction: column;
-            gap: 15px;
-            animation: fadeIn 0.4s ease-out forwards;
+        .view { display: none; flex-direction: column; gap: 15px; }
+        .view.active { display: flex; animation: fadeIn 0.3s; }
+        h2 { margin: 0; }
+        p { color: var(--muted); font-size: 14px; margin-top: 5px; }
+        input[type="password"], input[type="text"] {
+            width: 100%; padding: 12px; border: 2px solid var(--border);
+            border-radius: 8px; background: var(--bg); color: white;
+            font-size: 16px; box-sizing: border-box; outline: none;
         }
-
-        .view.active {
-            display: flex;
-        }
-
-        h2 { margin: 0 0 5px 0; font-size: 24px; }
-        p.subtitle { color: var(--text-muted); font-size: 14px; margin: 0 0 20px 0; }
-
-        input[type="password"] {
-            width: 100%;
-            padding: 12px;
-            box-sizing: border-box;
-            border: 2px solid var(--border);
-            border-radius: 8px;
-            background-color: #0f172a;
-            color: white;
-            font-size: 16px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-        input[type="password"]:focus { border-color: var(--primary); }
-
+        input:focus { border-color: var(--primary); }
+        .error-input { border-color: var(--danger) !important; color: var(--danger) !important; }
         button {
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: white;
-            width: 100%;
+            padding: 12px; border: none; border-radius: 8px; font-weight: 600;
+            cursor: pointer; color: white; background: var(--primary); width: 100%;
         }
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-danger { background: var(--danger); }
+        .btn-outline { background: transparent; border: 1px solid var(--muted); }
+        .progress-bar {
+            height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
+            margin-bottom: 10px;
         }
-
-        .btn-primary { background-color: var(--primary); }
-        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
-        .btn-reaction { background-color: var(--border); border: 2px dashed #64748b; }
-        .btn-danger { background-color: var(--danger); }
-        .btn-danger:hover { background-color: #dc2626; }
-        .btn-outline { background-color: transparent; border: 1px solid var(--text-muted); }
-        .btn-outline:hover { background-color: var(--border); }
-
-        .meter-container {
-            margin-top: 15px;
-            display: none;
+        .progress-fill {
+            height: 100%; width: 0%; background: var(--success); transition: width 0.3s;
         }
-        .meter-bg {
-            width: 100%;
-            height: 12px;
-            background-color: var(--border);
-            border-radius: 6px;
-            overflow: hidden;
-            position: relative;
+        .report {
+            background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 8px; padding: 15px; text-align: left; font-size: 13px; color: #fca5a5;
         }
-        .meter-fill {
-            height: 100%;
-            width: 0%;
-            background-color: var(--primary);
-            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.8s;
-        }
-        .score-text {
-            font-size: 14px;
-            font-weight: bold;
-            margin-top: 5px;
-            display: block;
-        }
-
-        .fail-reasons {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 8px;
-            padding: 15px;
-            text-align: left;
-            font-size: 14px;
-            color: #fca5a5;
-        }
-        .fail-reasons ul { padding-left: 20px; margin: 5px 0 0 0; }
-
-        .icon { font-size: 48px; margin-bottom: 10px; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .report ul { margin: 5px 0 0 0; padding-left: 20px; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
 
-<div class="app-container">
+<div class="container">
     
     <div id="view-setup" class="view active">
-        <h2>System Registration</h2>
-        <p class="subtitle">Type a password and complete the reaction test to set your baseline.</p>
-        
-        <input type="password" id="setupInput" autocomplete="off" placeholder="Enter new password...">
-        
-        <button id="setupReactionBtn" class="btn-reaction">Step 1: Test Reaction Time</button>
-        <button id="saveBtn" class="btn-primary" disabled>Step 2: Save Profile</button>
+        <h2>Target Phrase</h2>
+        <p>Set the password you want to protect.</p>
+        <input type="text" id="targetPhrase" placeholder="e.g., correct horse battery staple" autocomplete="off">
+        <button onclick="startTraining()">Start Biometric Training</button>
+    </div>
+
+    <div id="view-train" class="view">
+        <h2>Baseline Training</h2>
+        <p id="trainInstructions">Type the phrase perfectly to build your profile.</p>
+        <div class="progress-bar"><div id="trainProgress" class="progress-fill"></div></div>
+        <p style="margin: 0; font-weight: bold; color: var(--primary);" id="trainCounter">Attempt 0 / 5</p>
+        <input type="password" id="trainInput" autocomplete="off" placeholder="Type here...">
+        <p id="trainWarning" style="color: var(--danger); display: none;">Mistake/Backspace detected. Clear input and try again.</p>
     </div>
 
     <div id="view-login" class="view">
-        <h2>Authentication</h2>
-        <p class="subtitle">Match your original typing rhythm and reaction time to gain access.</p>
-        
-        <input type="password" id="loginInput" autocomplete="off" placeholder="Enter password...">
-        
-        <button id="loginReactionBtn" class="btn-reaction">Step 1: Test Reaction Time</button>
-        <button id="loginBtn" class="btn-primary" disabled>Step 2: Authenticate</button>
-
-        <div id="meterContainer" class="meter-container">
-            <div class="meter-bg"><div id="meterFill" class="meter-fill"></div></div>
-            <span class="score-text">Confidence: <span id="confidenceText">0</span>%</span>
-        </div>
+        <h2>Secure Login</h2>
+        <p>Type your phrase with your natural rhythm.</p>
+        <input type="password" id="loginInput" autocomplete="off" placeholder="Authenticate...">
+        <p>Confidence Match: <span id="confidenceScore" style="font-weight:bold; color:var(--primary);">--</span>%</p>
+        <button id="btnReaction" style="background: var(--border); color: white;">Test Reaction (Optional)</button>
     </div>
 
-    <div id="view-success" class="view">
-        <div class="icon">✅</div>
-        <h2 style="color: var(--success);">Access Granted</h2>
-        <p class="subtitle">Identity verified. Your behavior matches the saved profile.</p>
-        <button onclick="resetSystem()" class="btn-outline" style="margin-top: 20px;">Hard Reset System</button>
-    </div>
-
-    <div id="view-fail" class="view">
-        <div class="icon">❌</div>
-        <h2 style="color: var(--danger);">Access Denied</h2>
-        <p class="subtitle">Behavioral mismatch detected.</p>
-        
-        <div class="fail-reasons">
-            <strong>Anomaly Report:</strong>
+    <div id="view-result" class="view">
+        <h2 id="resultTitle">Result</h2>
+        <p id="resultSubtitle">Details below.</p>
+        <div id="failReport" class="report" style="display: none;">
+            <strong>Z-Score Anomalies:</strong>
             <ul id="reasonsList"></ul>
         </div>
-
         <div style="display: flex; gap: 10px; margin-top: 15px;">
             <button onclick="switchView('view-login')" class="btn-primary">Try Again</button>
-            <button onclick="resetSystem()" class="btn-danger">Hard Reset</button>
+            <button onclick="location.reload()" class="btn-danger">Total Reset</button>
         </div>
     </div>
 
 </div>
 
 <script>
-    // --- System State & Memory ---
-    let savedProfile = null;
-    let activeKeys = {};
-    let reactionTimer = null;
-    let reactionStartTime = 0;
+    // --- System Configuration & State ---
+    const REQUIRED_SAMPLES = 5;
+    const MIN_VARIANCE_MS = 15; // The epsilon to prevent division by zero
     
-    let currentMetrics = createEmptyMetrics();
-
-    function createEmptyMetrics() {
-        return {
-            phrase: "",
-            startTime: null,
-            totalTime: 0,
-            dwellTimes: [],
-            avgDwell: 0,
-            shiftUsed: false,
-            capsUsed: false,
-            reactionTime: null
-        };
-    }
+    let targetPassword = "";
+    let trainingSamples = [];
+    let statisticalBaseline = null;
+    
+    // Typing State tracking
+    let currentKeyEvents = [];
+    let hasMistake = false;
+    let rxnTime = 300; // Default fallback if they skip the reaction test
 
     // --- Core Navigation ---
     function switchView(viewId) {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
         
-        // Reset inputs and metrics on view switch
-        currentMetrics = createEmptyMetrics();
-        activeKeys = {};
-        
-        if(viewId === 'view-setup') {
-            document.getElementById('setupInput').value = "";
-            resetReactionButton('setupReactionBtn');
-            document.getElementById('saveBtn').disabled = true;
+        if (viewId === 'view-train') {
+            document.getElementById('trainInput').value = "";
+            document.getElementById('trainInput').focus();
+            hasMistake = false;
+            currentKeyEvents = [];
         } else if (viewId === 'view-login') {
             document.getElementById('loginInput').value = "";
-            resetReactionButton('loginReactionBtn');
-            document.getElementById('loginBtn').disabled = true;
-            document.getElementById('meterContainer').style.display = 'none';
-            document.getElementById('meterFill').style.width = '0%';
+            document.getElementById('loginInput').focus();
+            document.getElementById('confidenceScore').innerText = "--";
+            hasMistake = false;
+            currentKeyEvents = [];
         }
     }
 
-    function resetSystem() {
-        savedProfile = null;
-        switchView('view-setup');
+    function startTraining() {
+        const phrase = document.getElementById('targetPhrase').value.trim();
+        if (phrase.length < 5) return alert("Password must be at least 5 characters.");
+        targetPassword = phrase;
+        document.getElementById('trainInstructions').innerText = `Type: "${targetPassword}"`;
+        switchView('view-train');
     }
 
-    // --- Reaction Test Logic ---
-    function resetReactionButton(btnId) {
-        const btn = document.getElementById(btnId);
-        btn.dataset.state = 'idle';
-        btn.innerText = 'Step 1: Test Reaction Time';
-        btn.style.backgroundColor = 'var(--border)';
-        btn.style.borderColor = '#64748b';
-        btn.disabled = false;
-        clearTimeout(reactionTimer);
-    }
-
-    function handleReactionClick(btnId, targetBtnId) {
-        const btn = document.getElementById(btnId);
-        const state = btn.dataset.state || 'idle';
-
-        if (state === 'idle') {
-            // Start waiting phase
-            btn.dataset.state = 'waiting';
-            btn.innerText = 'Wait for Green...';
-            btn.style.backgroundColor = 'var(--warning)';
-            btn.style.borderStyle = 'solid';
+    // --- Reaction Test Logic (Downweighted to 5% as per ChatGPT suggestion) ---
+    document.getElementById('btnReaction').addEventListener('click', function() {
+        if (this.dataset.waiting) return;
+        this.dataset.waiting = "true";
+        this.innerText = "Wait...";
+        this.style.background = "var(--warning)";
+        
+        setTimeout(() => {
+            const start = performance.now();
+            this.innerText = "CLICK!";
+            this.style.background = "var(--success)";
             
-            const randomDelay = Math.floor(Math.random() * 2000) + 1000; // 1s to 3s
-            reactionTimer = setTimeout(() => {
-                btn.dataset.state = 'ready';
-                btn.innerText = 'CLICK NOW!';
-                btn.style.backgroundColor = 'var(--success)';
-                reactionStartTime = performance.now();
-            }, randomDelay);
+            this.onclick = (e) => {
+                if (this.innerText !== "CLICK!") return; // Prevent early clicks
+                rxnTime = performance.now() - start;
+                this.innerText = `Reaction: ${Math.round(rxnTime)}ms`;
+                this.style.background = "var(--border)";
+                this.onclick = null; // Remove standard listener
+            };
+        }, Math.random() * 2000 + 1000);
+    });
 
-        } else if (state === 'waiting') {
-            // Clicked too early
-            clearTimeout(reactionTimer);
-            btn.innerText = 'Too early! Click to restart.';
-            btn.style.backgroundColor = 'var(--danger)';
-            btn.dataset.state = 'idle';
-
-        } else if (state === 'ready') {
-            // Success
-            const rxnTime = performance.now() - reactionStartTime;
-            currentMetrics.reactionTime = rxnTime;
-            
-            btn.dataset.state = 'done';
-            btn.innerText = `Reaction: ${Math.round(rxnTime)}ms`;
-            btn.style.backgroundColor = 'var(--primary)';
-            btn.disabled = true;
-
-            // Enable the next step button
-            document.getElementById(targetBtnId).disabled = false;
-        }
-    }
-
-    // Bind Reaction Buttons
-    document.getElementById('setupReactionBtn').addEventListener('click', () => handleReactionClick('setupReactionBtn', 'saveBtn'));
-    document.getElementById('loginReactionBtn').addEventListener('click', () => handleReactionClick('loginReactionBtn', 'loginBtn'));
-
-
-    // --- Typing Tracking Logic ---
-    function attachTypingListeners(inputId) {
+    // --- Typing Tracker Engine ---
+    function attachTypingEngine(inputId, isTraining) {
         const input = document.getElementById(inputId);
+        const warning = document.getElementById('trainWarning');
         
         input.addEventListener('keydown', (e) => {
-            if (!currentMetrics.startTime) currentMetrics.startTime = performance.now();
-            if (!activeKeys[e.code]) activeKeys[e.code] = performance.now();
+            // Reject backspaces or arrows entirely. A clean biometric sample must be typed linearly.
+            if (['Backspace', 'ArrowLeft', 'ArrowRight', 'Delete'].includes(e.key)) {
+                hasMistake = true;
+                input.classList.add('error-input');
+                if(isTraining) warning.style.display = 'block';
+                return;
+            }
             
-            if (e.shiftKey) currentMetrics.shiftUsed = true;
-            if (e.getModifierState && e.getModifierState('CapsLock')) currentMetrics.capsUsed = true;
+            // Ignore modifiers for the raw timing array to keep logic clean
+            if (['Shift', 'CapsLock', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+
+            currentKeyEvents.push({
+                key: e.key,
+                type: 'down',
+                time: performance.now(),
+                index: input.value.length // Bind to character position
+            });
         });
 
         input.addEventListener('keyup', (e) => {
-            if (activeKeys[e.code]) {
-                let dwell = performance.now() - activeKeys[e.code];
-                currentMetrics.dwellTimes.push(dwell);
-                delete activeKeys[e.code];
+            if (['Shift', 'CapsLock', 'Control', 'Alt', 'Meta', 'Backspace'].includes(e.key)) return;
+            
+            // Find the corresponding keydown for this index to calculate dwell
+            const targetIndex = input.value.length - 1;
+            
+            currentKeyEvents.push({
+                key: e.key,
+                type: 'up',
+                time: performance.now(),
+                index: targetIndex
+            });
+
+            // Process completion
+            if (input.value === targetPassword) {
+                if (hasMistake) {
+                    // Force them to clear and restart if they messed up
+                    setTimeout(() => {
+                        input.value = "";
+                        input.classList.remove('error-input');
+                        if(isTraining) warning.style.display = 'none';
+                        hasMistake = false;
+                        currentKeyEvents = [];
+                    }, 500);
+                    return;
+                }
+
+                const metrics = extractMetrics(currentKeyEvents, targetPassword.length);
+                
+                if (isTraining) {
+                    trainingSamples.push(metrics);
+                    updateTrainingProgress();
+                } else {
+                    authenticateUser(metrics);
+                }
             }
-            currentMetrics.phrase = input.value;
-            currentMetrics.totalTime = performance.now() - currentMetrics.startTime;
         });
     }
 
-    attachTypingListeners('setupInput');
-    attachTypingListeners('loginInput');
+    attachTypingEngine('trainInput', true);
+    attachTypingEngine('loginInput', false);
 
+    // --- Data Extraction & Math ---
+    function extractMetrics(events, passLength) {
+        let dwells = new Array(passLength).fill(0);
+        let flights = new Array(passLength - 1).fill(0);
+        let pressTimes = new Array(passLength).fill(0);
 
-    // --- Actions ---
-    document.getElementById('saveBtn').addEventListener('click', () => {
-        if (currentMetrics.phrase.length < 4) {
-            alert("Password must be at least 4 characters long.");
-            return;
+        // Process Dwells & record press times
+        for (let i = 0; i < passLength; i++) {
+            const downEvent = events.find(e => e.index === i && e.type === 'down');
+            const upEvent = events.find(e => e.index === i && e.type === 'up');
+            
+            if (downEvent && upEvent) {
+                dwells[i] = upEvent.time - downEvent.time;
+                pressTimes[i] = downEvent.time;
+            }
         }
 
-        // Calculate final baseline metrics
-        let totalDwell = currentMetrics.dwellTimes.reduce((a, b) => a + b, 0);
-        currentMetrics.avgDwell = totalDwell / (currentMetrics.dwellTimes.length || 1);
-        
-        savedProfile = JSON.parse(JSON.stringify(currentMetrics));
-        switchView('view-login');
-    });
-
-    document.getElementById('loginBtn').addEventListener('click', () => {
-        if (!savedProfile) return;
-
-        // Finalize attempt metrics
-        let totalDwell = currentMetrics.dwellTimes.reduce((a, b) => a + b, 0);
-        currentMetrics.avgDwell = totalDwell / (currentMetrics.dwellTimes.length || 1);
-
-        const result = calculateMatch(savedProfile, currentMetrics);
-        
-        // UI Animation for Meter
-        const meterContainer = document.getElementById('meterContainer');
-        const meterFill = document.getElementById('meterFill');
-        const confText = document.getElementById('confidenceText');
-        
-        document.getElementById('loginBtn').disabled = true;
-        document.getElementById('loginInput').disabled = true;
-        meterContainer.style.display = 'block';
-        
-        // Force reflow to ensure transition plays
-        void meterFill.offsetWidth; 
-        
-        meterFill.style.width = result.score + "%";
-        confText.innerText = result.score.toFixed(1);
-
-        if (result.score >= 80) {
-            meterFill.style.backgroundColor = 'var(--success)';
-            setTimeout(() => {
-                document.getElementById('loginInput').disabled = false;
-                switchView('view-success');
-            }, 1200);
-        } else {
-            meterFill.style.backgroundColor = 'var(--danger)';
-            setTimeout(() => {
-                document.getElementById('loginInput').disabled = false;
-                populateFailReasons(result.reasons);
-                switchView('view-fail');
-            }, 1200);
-        }
-    });
-
-    // --- The Comparison Algorithm ---
-    function calculateMatch(saved, attempt) {
-        let match = { score: 100, reasons: [] };
-
-        // 1. Password Phrase Check
-        if (saved.phrase !== attempt.phrase) {
-            match.score = 0;
-            match.reasons.push("Incorrect password phrase.");
-            return match; // Immediate failure
+        // Process Flights (Keydown to Keydown digraph latency)
+        for (let i = 1; i < passLength; i++) {
+            flights[i-1] = pressTimes[i] - pressTimes[i-1];
         }
 
-        // 2. Typing Speed (Total Time)
-        let timeDiff = Math.abs(saved.totalTime - attempt.totalTime);
-        let timePenalty = Math.min((timeDiff / saved.totalTime) * 100, 35);
-        if (timePenalty > 15) match.reasons.push("Typing rhythm/speed anomaly detected.");
-        match.score -= timePenalty;
-
-        // 3. Key Dwell Time
-        let dwellDiff = Math.abs(saved.avgDwell - attempt.avgDwell);
-        let dwellPenalty = Math.min((dwellDiff / saved.avgDwell) * 100, 25);
-        if (dwellPenalty > 15) match.reasons.push("Key press pressure/hold-time mismatch.");
-        match.score -= dwellPenalty;
-
-        // 4. Modifiers (Caps vs Shift habits)
-        if (saved.shiftUsed !== attempt.shiftUsed) {
-            match.score -= 15;
-            match.reasons.push("Different Shift key usage detected.");
-        }
-        if (saved.capsUsed !== attempt.capsUsed) {
-            match.score -= 15;
-            match.reasons.push("Different CapsLock usage detected.");
-        }
-
-        // 5. Reaction Time Check
-        let rxnDiff = Math.abs(saved.reactionTime - attempt.reactionTime);
-        let rxnPenalty = Math.min((rxnDiff / saved.reactionTime) * 100, 20);
-        if (rxnPenalty > 10) match.reasons.push("Cognitive reaction delay did not match profile.");
-        match.score -= rxnPenalty;
-
-        match.score = Math.max(0, match.score);
-        return match;
+        return { dwells, flights, totalTime: pressTimes[passLength-1] - pressTimes[0] };
     }
 
-    function populateFailReasons(reasons) {
-        const list = document.getElementById('reasonsList');
-        list.innerHTML = "";
+    function updateTrainingProgress() {
+        const input = document.getElementById('trainInput');
+        document.getElementById('trainCounter').innerText = `Attempt ${trainingSamples.length} / ${REQUIRED_SAMPLES}`;
+        document.getElementById('trainProgress').style.width = `${(trainingSamples.length / REQUIRED_SAMPLES) * 100}%`;
         
-        if (reasons.length === 0) {
-            list.innerHTML = "<li>Unspecified behavioral anomaly.</li>";
-            return;
+        input.value = "";
+        currentKeyEvents = [];
+
+        if (trainingSamples.length >= REQUIRED_SAMPLES) {
+            buildStatisticalBaseline();
+            switchView('view-login');
+        }
+    }
+
+    function calculateStats(arr) {
+        const n = arr.length;
+        const mean = arr.reduce((a, b) => a + b, 0) / n;
+        const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
+        return { mean, stdDev: Math.sqrt(variance) };
+    }
+
+    function buildStatisticalBaseline() {
+        const passLength = targetPassword.length;
+        statisticalBaseline = {
+            dwells: [],
+            flights: []
+        };
+
+        // Calculate arrays across the N dimensions
+        for (let i = 0; i < passLength; i++) {
+            let dwellArr = trainingSamples.map(sample => sample.dwells[i]);
+            statisticalBaseline.dwells.push(calculateStats(dwellArr));
         }
 
-        reasons.forEach(reason => {
-            let li = document.createElement('li');
-            li.innerText = reason;
-            list.appendChild(li);
-        });
+        for (let i = 0; i < passLength - 1; i++) {
+            let flightArr = trainingSamples.map(sample => sample.flights[i]);
+            statisticalBaseline.flights.push(calculateStats(flightArr));
+        }
+    }
+
+    // --- Authentication Engine ---
+    function authenticateUser(attemptMetrics) {
+        let zScoreSum = 0;
+        let featureCount = 0;
+        let anomalies = [];
+
+        // 1. Evaluate Flight Times (Heavily weighted - 50% of the biometrics)
+        let flightZSum = 0;
+        for (let i = 0; i < attemptMetrics.flights.length; i++) {
+            let stats = statisticalBaseline.flights[i];
+            let z = Math.abs(attemptMetrics.flights[i] - stats.mean) / Math.max(stats.stdDev, MIN_VARIANCE_MS);
+            flightZSum += z;
+            if (z > 3) anomalies.push(`Flight timing anomaly at transition ${i+1}. (Z: ${z.toFixed(1)})`);
+        }
+        let avgFlightZ = flightZSum / attemptMetrics.flights.length;
+
+        // 2. Evaluate Dwell Times (30% weight)
+        let dwellZSum = 0;
+        for (let i = 0; i < attemptMetrics.dwells.length; i++) {
+            let stats = statisticalBaseline.dwells[i];
+            let z = Math.abs(attemptMetrics.dwells[i] - stats.mean) / Math.max(stats.stdDev, MIN_VARIANCE_MS);
+            dwellZSum += z;
+            if (z > 3) anomalies.push(`Key hold (dwell) anomaly at position ${i+1}. (Z: ${z.toFixed(1)})`);
+        }
+        let avgDwellZ = dwellZSum / attemptMetrics.dwells.length;
+
+        // 3. Reaction Time Check (Flat 5% weight, highly tolerant)
+        // Assume baseline rxn is roughly 300ms from normal humans.
+        let rxnZ = Math.abs(rxnTime - 300) / 150; 
+        if (rxnZ > 3) anomalies.push("Reaction time variance outside expected bounds.");
+
+        // Calculate Final Weighted Z-Score
+        // A perfect Z-score is 0. A Z-score > 2 is statistically anomalous.
+        const weightedZ = (avgFlightZ * 0.5) + (avgDwellZ * 0.3) + (rxnZ * 0.05);
+        
+        // Convert Z-score to a 0-100 Confidence %
+        // If Z is 0 = 100%. If Z is 2.5 (High deviation) = 0%.
+        let confidence = Math.max(0, 100 - (weightedZ * 40)); 
+        
+        document.getElementById('confidenceScore').innerText = confidence.toFixed(1);
+
+        setTimeout(() => {
+            if (confidence >= 75) {
+                document.getElementById('resultTitle').innerText = "Access Granted";
+                document.getElementById('resultTitle').style.color = "var(--success)";
+                document.getElementById('resultSubtitle').innerText = "Typing dynamics match statistical baseline.";
+                document.getElementById('failReport').style.display = "none";
+            } else {
+                document.getElementById('resultTitle').innerText = "Access Denied";
+                document.getElementById('resultTitle').style.color = "var(--danger)";
+                document.getElementById('resultSubtitle').innerText = "Behavioral fingerprint mismatch.";
+                
+                const ul = document.getElementById('reasonsList');
+                ul.innerHTML = "";
+                anomalies.slice(0, 4).forEach(reason => {
+                    let li = document.createElement('li');
+                    li.innerText = reason;
+                    ul.appendChild(li);
+                });
+                if(anomalies.length === 0) ul.innerHTML = "<li>Overall rhythm variance exceeded thresholds.</li>";
+                document.getElementById('failReport').style.display = "block";
+            }
+            switchView('view-result');
+        }, 500);
     }
 </script>
 
