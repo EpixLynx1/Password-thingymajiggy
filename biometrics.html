@@ -3,358 +3,361 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Statistical Biometric Authentication</title>
+    <title>Hybrid Biometric Authentication</title>
     <style>
         :root {
-            --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --muted: #94a3b8;
-            --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --border: #334155;
+            --bg: #0a0f1c; --card: #151e32; --text: #e2e8f0; --muted: #64748b;
+            --primary: #6366f1; --success: #22c55e; --danger: #ef4444; --border: #334155;
+            --warning: #eab308;
         }
         body {
-            font-family: 'Inter', system-ui, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             background-color: var(--bg); color: var(--text);
             display: flex; justify-content: center; align-items: center;
             height: 100vh; margin: 0;
         }
         .container {
-            background: var(--card); padding: 40px; border-radius: 12px;
-            width: 420px; text-align: center; border: 1px solid var(--border);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: var(--card); padding: 40px; border-radius: 16px;
+            width: 450px; text-align: center; border: 1px solid var(--border);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7);
         }
         .view { display: none; flex-direction: column; gap: 15px; }
-        .view.active { display: flex; animation: fadeIn 0.3s; }
-        h2 { margin: 0; }
-        p { color: var(--muted); font-size: 14px; margin-top: 5px; }
-        input[type="password"], input[type="text"] {
-            width: 100%; padding: 12px; border: 2px solid var(--border);
-            border-radius: 8px; background: var(--bg); color: white;
-            font-size: 16px; box-sizing: border-box; outline: none;
+        .view.active { display: flex; animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        h2 { margin: 0; font-weight: 600; letter-spacing: -0.5px; }
+        p { color: var(--muted); font-size: 14px; margin: 5px 0 15px 0; line-height: 1.5; }
+        .target-phrase { 
+            background: #0f172a; padding: 15px; border-radius: 8px; 
+            font-family: monospace; font-size: 16px; color: var(--primary); font-weight: bold;
+            border: 1px solid var(--border); margin-bottom: 15px;
         }
-        input:focus { border-color: var(--primary); }
-        .error-input { border-color: var(--danger) !important; color: var(--danger) !important; }
+        input[type="text"], input[type="password"] {
+            width: 100%; padding: 14px; border: 2px solid var(--border);
+            border-radius: 8px; background: #0f172a; color: white;
+            font-size: 16px; box-sizing: border-box; outline: none; transition: 0.2s;
+        }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
+        .error-shake { animation: shake 0.4s; border-color: var(--danger) !important; color: var(--danger); }
         button {
-            padding: 12px; border: none; border-radius: 8px; font-weight: 600;
-            cursor: pointer; color: white; background: var(--primary); width: 100%;
+            padding: 14px; border: none; border-radius: 8px; font-weight: bold; font-size: 15px;
+            cursor: pointer; color: white; background: var(--primary); width: 100%; transition: 0.2s;
         }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-danger { background: var(--danger); }
-        .btn-outline { background: transparent; border: 1px solid var(--muted); }
-        .progress-bar {
-            height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
-            margin-bottom: 10px;
-        }
-        .progress-fill {
-            height: 100%; width: 0%; background: var(--success); transition: width 0.3s;
-        }
+        button:hover { background: #4f46e5; }
+        .progress-container { display: flex; gap: 5px; margin-bottom: 15px; }
+        .step-dot { height: 8px; flex: 1; background: var(--border); border-radius: 4px; transition: 0.3s; }
+        .step-dot.active { background: var(--primary); }
+        .step-dot.done { background: var(--success); }
         .report {
             background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239,68,68,0.3);
             border-radius: 8px; padding: 15px; text-align: left; font-size: 13px; color: #fca5a5;
         }
-        .report ul { margin: 5px 0 0 0; padding-left: 20px; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
     </style>
 </head>
 <body>
 
 <div class="container">
     
-    <div id="view-setup" class="view active">
-        <h2>Target Phrase</h2>
-        <p>Set the password you want to protect.</p>
-        <input type="text" id="targetPhrase" placeholder="e.g., correct horse battery staple" autocomplete="off">
-        <button onclick="startTraining()">Start Biometric Training</button>
+    <div id="view-init" class="view active">
+        <h2>Secure Enrollment</h2>
+        <p>To ensure 100% accurate identification, we first need to learn your global typing habits before setting a password.</p>
+        <button onclick="startEnrollment()">Begin Biometric Scan</button>
     </div>
 
     <div id="view-train" class="view">
-        <h2>Baseline Training</h2>
-        <p id="trainInstructions">Type the phrase perfectly to build your profile.</p>
-        <div class="progress-bar"><div id="trainProgress" class="progress-fill"></div></div>
-        <p style="margin: 0; font-weight: bold; color: var(--primary);" id="trainCounter">Attempt 0 / 5</p>
-        <input type="password" id="trainInput" autocomplete="off" placeholder="Type here...">
-        <p id="trainWarning" style="color: var(--danger); display: none;">Mistake/Backspace detected. Clear input and try again.</p>
+        <h2 id="trainTitle">Phase 1: Global Habits</h2>
+        <p id="trainDesc">Type the phrase below exactly as shown. Do not use backspace.</p>
+        
+        <div class="progress-container" id="progressDots"></div>
+        
+        <div class="target-phrase" id="displayPhrase">loading...</div>
+        <input type="text" id="trainInput" autocomplete="off" spellcheck="false" placeholder="Type here...">
+        <p id="errorMsg" style="color: var(--danger); display: none; font-weight: bold;">Mistake detected. Try again.</p>
+    </div>
+
+    <div id="view-setpass" class="view">
+        <h2>Phase 2: Target Protocol</h2>
+        <p>Your global profile is saved. Now, invent the specific password you wish to protect.</p>
+        <input type="text" id="customPassword" autocomplete="off" placeholder="Enter target password...">
+        <button onclick="startPasswordTraining()">Set and Train Password</button>
     </div>
 
     <div id="view-login" class="view">
-        <h2>Secure Login</h2>
-        <p>Type your phrase with your natural rhythm.</p>
-        <input type="password" id="loginInput" autocomplete="off" placeholder="Authenticate...">
-        <p>Confidence Match: <span id="confidenceScore" style="font-weight:bold; color:var(--primary);">--</span>%</p>
-        <button id="btnReaction" style="background: var(--border); color: white;">Test Reaction (Optional)</button>
-    </div>
-
-    <div id="view-result" class="view">
-        <h2 id="resultTitle">Result</h2>
-        <p id="resultSubtitle">Details below.</p>
-        <div id="failReport" class="report" style="display: none;">
-            <strong>Z-Score Anomalies:</strong>
-            <ul id="reasonsList"></ul>
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 15px;">
-            <button onclick="switchView('view-login')" class="btn-primary">Try Again</button>
-            <button onclick="location.reload()" class="btn-danger">Total Reset</button>
-        </div>
+        <h2>Authentication</h2>
+        <p>Enter your password. The system will verify your global rhythm and specific signature.</p>
+        <input type="password" id="loginInput" autocomplete="off" placeholder="Password...">
+        <div id="authStatus" style="margin-top: 10px; font-weight: bold; font-size: 18px;"></div>
     </div>
 
 </div>
 
 <script>
-    // --- System Configuration & State ---
-    const REQUIRED_SAMPLES = 5;
-    const MIN_VARIANCE_MS = 15; // The epsilon to prevent division by zero
+    /** SYSTEM CONFIGURATION */
+    const GENERAL_PHRASES = [
+        "the quick brown fox",
+        "to be or not to be",
+        "a journey of a thousand miles"
+    ];
+    const PASS_REPETITIONS = 3; 
     
+    // Variance floors (Human limiters to prevent False Rejections)
+    const MIN_DWELL_STD = 35;  // Humans naturally vary by ~35ms holding keys
+    const MIN_FLIGHT_STD = 45; // Humans naturally vary by ~45ms between keys
+
+    /** STATE */
+    let currentPhase = 'general'; // 'general' or 'password'
+    let stepIndex = 0;
     let targetPassword = "";
-    let trainingSamples = [];
-    let statisticalBaseline = null;
     
-    // Typing State tracking
-    let currentKeyEvents = [];
+    let rawGeneralData = [];
+    let rawPasswordData = [];
+    let model = { global: {}, specific: {} };
+
+    let keyEvents = [];
     let hasMistake = false;
-    let rxnTime = 300; // Default fallback if they skip the reaction test
 
-    // --- Core Navigation ---
-    function switchView(viewId) {
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById(viewId).classList.add('active');
+    /** DOM ELEMENTS */
+    const views = {
+        init: document.getElementById('view-init'),
+        train: document.getElementById('view-train'),
+        setpass: document.getElementById('view-setpass'),
+        login: document.getElementById('view-login')
+    };
+
+    function switchView(viewName) {
+        Object.values(views).forEach(v => v.classList.remove('active'));
+        views[viewName].classList.add('active');
+        keyEvents = []; hasMistake = false;
+    }
+
+    /** UI ROUTING & SETUP */
+    function startEnrollment() {
+        switchView('train');
+        setupTrainingStep();
+    }
+
+    function startPasswordTraining() {
+        const pass = document.getElementById('customPassword').value.trim();
+        if (pass.length < 6) return alert("Password must be at least 6 characters.");
+        targetPassword = pass;
+        currentPhase = 'password';
+        stepIndex = 0;
+        switchView('train');
+        setupTrainingStep();
+    }
+
+    function setupTrainingStep() {
+        const input = document.getElementById('trainInput');
+        const phraseContainer = document.getElementById('displayPhrase');
+        const dotsContainer = document.getElementById('progressDots');
         
-        if (viewId === 'view-train') {
-            document.getElementById('trainInput').value = "";
-            document.getElementById('trainInput').focus();
-            hasMistake = false;
-            currentKeyEvents = [];
-        } else if (viewId === 'view-login') {
-            document.getElementById('loginInput').value = "";
-            document.getElementById('loginInput').focus();
-            document.getElementById('confidenceScore').innerText = "--";
-            hasMistake = false;
-            currentKeyEvents = [];
+        input.value = "";
+        input.type = currentPhase === 'general' ? "text" : "password";
+        keyEvents = [];
+        hasMistake = false;
+
+        let totalSteps = currentPhase === 'general' ? GENERAL_PHRASES.length : PASS_REPETITIONS;
+        
+        // Setup UI texts
+        if (currentPhase === 'general') {
+            document.getElementById('trainTitle').innerText = "Phase 1: Global Habits";
+            phraseContainer.innerText = GENERAL_PHRASES[stepIndex];
+        } else {
+            document.getElementById('trainTitle').innerText = "Phase 2: Specific Signature";
+            document.getElementById('trainDesc').innerText = `Type your password to build its specific profile.`;
+            phraseContainer.innerText = targetPassword; // Kept visible for training
         }
-    }
 
-    function startTraining() {
-        const phrase = document.getElementById('targetPhrase').value.trim();
-        if (phrase.length < 5) return alert("Password must be at least 5 characters.");
-        targetPassword = phrase;
-        document.getElementById('trainInstructions').innerText = `Type: "${targetPassword}"`;
-        switchView('view-train');
-    }
-
-    // --- Reaction Test Logic (Downweighted to 5% as per ChatGPT suggestion) ---
-    document.getElementById('btnReaction').addEventListener('click', function() {
-        if (this.dataset.waiting) return;
-        this.dataset.waiting = "true";
-        this.innerText = "Wait...";
-        this.style.background = "var(--warning)";
+        // Render progress dots
+        dotsContainer.innerHTML = "";
+        for(let i=0; i<totalSteps; i++) {
+            let dot = document.createElement('div');
+            dot.className = `step-dot ${i < stepIndex ? 'done' : i === stepIndex ? 'active' : ''}`;
+            dotsContainer.appendChild(dot);
+        }
         
-        setTimeout(() => {
-            const start = performance.now();
-            this.innerText = "CLICK!";
-            this.style.background = "var(--success)";
-            
-            this.onclick = (e) => {
-                if (this.innerText !== "CLICK!") return; // Prevent early clicks
-                rxnTime = performance.now() - start;
-                this.innerText = `Reaction: ${Math.round(rxnTime)}ms`;
-                this.style.background = "var(--border)";
-                this.onclick = null; // Remove standard listener
-            };
-        }, Math.random() * 2000 + 1000);
-    });
+        input.focus();
+    }
 
-    // --- Typing Tracker Engine ---
+    /** TYPING ENGINE (Core Data Collector) */
     function attachTypingEngine(inputId, isTraining) {
         const input = document.getElementById(inputId);
-        const warning = document.getElementById('trainWarning');
         
         input.addEventListener('keydown', (e) => {
-            // Reject backspaces or arrows entirely. A clean biometric sample must be typed linearly.
-            if (['Backspace', 'ArrowLeft', 'ArrowRight', 'Delete'].includes(e.key)) {
-                hasMistake = true;
-                input.classList.add('error-input');
-                if(isTraining) warning.style.display = 'block';
+            if (['Shift', 'CapsLock', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+            
+            // Reject backspaces strictly to keep data clean
+            if (e.key === 'Backspace') {
+                triggerError(input);
                 return;
             }
-            
-            // Ignore modifiers for the raw timing array to keep logic clean
-            if (['Shift', 'CapsLock', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
 
-            currentKeyEvents.push({
-                key: e.key,
-                type: 'down',
-                time: performance.now(),
-                index: input.value.length // Bind to character position
-            });
+            keyEvents.push({ key: e.key, type: 'down', time: performance.now(), idx: input.value.length });
         });
 
         input.addEventListener('keyup', (e) => {
             if (['Shift', 'CapsLock', 'Control', 'Alt', 'Meta', 'Backspace'].includes(e.key)) return;
             
-            // Find the corresponding keydown for this index to calculate dwell
-            const targetIndex = input.value.length - 1;
-            
-            currentKeyEvents.push({
-                key: e.key,
-                type: 'up',
-                time: performance.now(),
-                index: targetIndex
-            });
+            let targetIdx = input.value.length - 1;
+            keyEvents.push({ key: e.key, type: 'up', time: performance.now(), idx: targetIdx });
 
-            // Process completion
-            if (input.value === targetPassword) {
-                if (hasMistake) {
-                    // Force them to clear and restart if they messed up
-                    setTimeout(() => {
-                        input.value = "";
-                        input.classList.remove('error-input');
-                        if(isTraining) warning.style.display = 'none';
-                        hasMistake = false;
-                        currentKeyEvents = [];
-                    }, 500);
-                    return;
-                }
+            // Evaluate completion
+            let targetText = isTraining ? 
+                (currentPhase === 'general' ? GENERAL_PHRASES[stepIndex] : targetPassword) 
+                : targetPassword;
 
-                const metrics = extractMetrics(currentKeyEvents, targetPassword.length);
+            if (input.value === targetText) {
+                if (hasMistake) return triggerError(input);
+                
+                const metrics = processKeystrokes(keyEvents, targetText);
                 
                 if (isTraining) {
-                    trainingSamples.push(metrics);
-                    updateTrainingProgress();
+                    if (currentPhase === 'general') rawGeneralData.push(metrics);
+                    else rawPasswordData.push(metrics);
+                    
+                    stepIndex++;
+                    let totalSteps = currentPhase === 'general' ? GENERAL_PHRASES.length : PASS_REPETITIONS;
+                    
+                    if (stepIndex >= totalSteps) {
+                        if (currentPhase === 'general') switchView('setpass');
+                        else {
+                            buildMathematicalModel();
+                            switchView('login');
+                        }
+                    } else {
+                        setupTrainingStep();
+                    }
                 } else {
-                    authenticateUser(metrics);
+                    executeAuthentication(metrics);
                 }
+            } else if (isTraining && !targetText.startsWith(input.value)) {
+                // Typo detected mid-stream
+                triggerError(input);
             }
         });
+    }
+
+    function triggerError(input) {
+        hasMistake = true;
+        input.classList.add('error-shake');
+        document.getElementById('errorMsg').style.display = "block";
+        setTimeout(() => {
+            input.value = "";
+            input.classList.remove('error-shake');
+            document.getElementById('errorMsg').style.display = "none";
+            keyEvents = [];
+            hasMistake = false;
+        }, 600);
     }
 
     attachTypingEngine('trainInput', true);
     attachTypingEngine('loginInput', false);
 
-    // --- Data Extraction & Math ---
-    function extractMetrics(events, passLength) {
-        let dwells = new Array(passLength).fill(0);
-        let flights = new Array(passLength - 1).fill(0);
-        let pressTimes = new Array(passLength).fill(0);
+    /** MATH & DATA PROCESSING */
+    function processKeystrokes(events, phrase) {
+        let dwells = []; // Time holding a specific key
+        let flights = []; // Time between releasing one key and pressing next
+        let digraphs = {}; // Time between pressing key 1 and pressing key 2
 
-        // Process Dwells & record press times
-        for (let i = 0; i < passLength; i++) {
-            const downEvent = events.find(e => e.index === i && e.type === 'down');
-            const upEvent = events.find(e => e.index === i && e.type === 'up');
+        for (let i = 0; i < phrase.length; i++) {
+            let down = events.find(e => e.idx === i && e.type === 'down');
+            let up = events.find(e => e.idx === i && e.type === 'up');
+            if (down && up) dwells.push(up.time - down.time);
             
-            if (downEvent && upEvent) {
-                dwells[i] = upEvent.time - downEvent.time;
-                pressTimes[i] = downEvent.time;
+            if (i > 0) {
+                let prevDown = events.find(e => e.idx === i-1 && e.type === 'down');
+                let prevUp = events.find(e => e.idx === i-1 && e.type === 'up');
+                if (prevUp && down) flights.push(down.time - prevUp.time);
+                if (prevDown && down) {
+                    let pair = phrase[i-1] + phrase[i];
+                    digraphs[pair] = down.time - prevDown.time;
+                }
             }
         }
-
-        // Process Flights (Keydown to Keydown digraph latency)
-        for (let i = 1; i < passLength; i++) {
-            flights[i-1] = pressTimes[i] - pressTimes[i-1];
-        }
-
-        return { dwells, flights, totalTime: pressTimes[passLength-1] - pressTimes[0] };
+        return { dwells, flights, digraphs };
     }
 
-    function updateTrainingProgress() {
-        const input = document.getElementById('trainInput');
-        document.getElementById('trainCounter').innerText = `Attempt ${trainingSamples.length} / ${REQUIRED_SAMPLES}`;
-        document.getElementById('trainProgress').style.width = `${(trainingSamples.length / REQUIRED_SAMPLES) * 100}%`;
+    function calcStats(arr, minFloor) {
+        if (!arr || arr.length === 0) return { mean: 0, std: minFloor };
+        const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+        const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / arr.length;
+        // THIS IS THE FIX: Never let standard deviation drop below human biological limits.
+        return { mean, std: Math.max(Math.sqrt(variance), minFloor) };
+    }
+
+    function buildMathematicalModel() {
+        // 1. Build Global Model (Average overall typing weight and speed)
+        let allGlobalDwells = rawGeneralData.flatMap(d => d.dwells);
+        let allGlobalFlights = rawGeneralData.flatMap(d => d.flights);
         
-        input.value = "";
-        currentKeyEvents = [];
+        model.global.avgDwell = calcStats(allGlobalDwells, MIN_DWELL_STD);
+        model.global.avgFlight = calcStats(allGlobalFlights, MIN_FLIGHT_STD);
 
-        if (trainingSamples.length >= REQUIRED_SAMPLES) {
-            buildStatisticalBaseline();
-            switchView('view-login');
-        }
-    }
-
-    function calculateStats(arr) {
-        const n = arr.length;
-        const mean = arr.reduce((a, b) => a + b, 0) / n;
-        const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
-        return { mean, stdDev: Math.sqrt(variance) };
-    }
-
-    function buildStatisticalBaseline() {
-        const passLength = targetPassword.length;
-        statisticalBaseline = {
-            dwells: [],
-            flights: []
-        };
-
-        // Calculate arrays across the N dimensions
-        for (let i = 0; i < passLength; i++) {
-            let dwellArr = trainingSamples.map(sample => sample.dwells[i]);
-            statisticalBaseline.dwells.push(calculateStats(dwellArr));
-        }
-
-        for (let i = 0; i < passLength - 1; i++) {
-            let flightArr = trainingSamples.map(sample => sample.flights[i]);
-            statisticalBaseline.flights.push(calculateStats(flightArr));
-        }
-    }
-
-    // --- Authentication Engine ---
-    function authenticateUser(attemptMetrics) {
-        let zScoreSum = 0;
-        let featureCount = 0;
-        let anomalies = [];
-
-        // 1. Evaluate Flight Times (Heavily weighted - 50% of the biometrics)
-        let flightZSum = 0;
-        for (let i = 0; i < attemptMetrics.flights.length; i++) {
-            let stats = statisticalBaseline.flights[i];
-            let z = Math.abs(attemptMetrics.flights[i] - stats.mean) / Math.max(stats.stdDev, MIN_VARIANCE_MS);
-            flightZSum += z;
-            if (z > 3) anomalies.push(`Flight timing anomaly at transition ${i+1}. (Z: ${z.toFixed(1)})`);
-        }
-        let avgFlightZ = flightZSum / attemptMetrics.flights.length;
-
-        // 2. Evaluate Dwell Times (30% weight)
-        let dwellZSum = 0;
-        for (let i = 0; i < attemptMetrics.dwells.length; i++) {
-            let stats = statisticalBaseline.dwells[i];
-            let z = Math.abs(attemptMetrics.dwells[i] - stats.mean) / Math.max(stats.stdDev, MIN_VARIANCE_MS);
-            dwellZSum += z;
-            if (z > 3) anomalies.push(`Key hold (dwell) anomaly at position ${i+1}. (Z: ${z.toFixed(1)})`);
-        }
-        let avgDwellZ = dwellZSum / attemptMetrics.dwells.length;
-
-        // 3. Reaction Time Check (Flat 5% weight, highly tolerant)
-        // Assume baseline rxn is roughly 300ms from normal humans.
-        let rxnZ = Math.abs(rxnTime - 300) / 150; 
-        if (rxnZ > 3) anomalies.push("Reaction time variance outside expected bounds.");
-
-        // Calculate Final Weighted Z-Score
-        // A perfect Z-score is 0. A Z-score > 2 is statistically anomalous.
-        const weightedZ = (avgFlightZ * 0.5) + (avgDwellZ * 0.3) + (rxnZ * 0.05);
+        // 2. Build Specific Password Model (Positional data)
+        model.specific.dwells = [];
+        model.specific.flights = [];
         
-        // Convert Z-score to a 0-100 Confidence %
-        // If Z is 0 = 100%. If Z is 2.5 (High deviation) = 0%.
-        let confidence = Math.max(0, 100 - (weightedZ * 40)); 
-        
-        document.getElementById('confidenceScore').innerText = confidence.toFixed(1);
+        for (let i = 0; i < targetPassword.length; i++) {
+            let posDwells = rawPasswordData.map(d => d.dwells[i]);
+            model.specific.dwells.push(calcStats(posDwells, MIN_DWELL_STD));
+        }
+        for (let i = 0; i < targetPassword.length - 1; i++) {
+            let posFlights = rawPasswordData.map(d => d.flights[i]);
+            model.specific.flights.push(calcStats(posFlights, MIN_FLIGHT_STD));
+        }
+    }
 
-        setTimeout(() => {
-            if (confidence >= 75) {
-                document.getElementById('resultTitle').innerText = "Access Granted";
-                document.getElementById('resultTitle').style.color = "var(--success)";
-                document.getElementById('resultSubtitle').innerText = "Typing dynamics match statistical baseline.";
-                document.getElementById('failReport').style.display = "none";
-            } else {
-                document.getElementById('resultTitle').innerText = "Access Denied";
-                document.getElementById('resultTitle').style.color = "var(--danger)";
-                document.getElementById('resultSubtitle').innerText = "Behavioral fingerprint mismatch.";
-                
-                const ul = document.getElementById('reasonsList');
-                ul.innerHTML = "";
-                anomalies.slice(0, 4).forEach(reason => {
-                    let li = document.createElement('li');
-                    li.innerText = reason;
-                    ul.appendChild(li);
-                });
-                if(anomalies.length === 0) ul.innerHTML = "<li>Overall rhythm variance exceeded thresholds.</li>";
-                document.getElementById('failReport').style.display = "block";
-            }
-            switchView('view-result');
-        }, 500);
+    /** THE AUTHENTICATION ALGORITHM */
+    function executeAuthentication(attempt) {
+        const authStatus = document.getElementById('authStatus');
+        const loginInput = document.getElementById('loginInput');
+        
+        // Z-Score: How many standard deviations away from the mean is this attempt?
+        function getZ(val, stats) {
+            return Math.abs(val - stats.mean) / stats.std;
+        }
+
+        let zScores = [];
+
+        // 1. Verify Global Rhythm (Are they generally striking keys like the owner?)
+        let attemptAvgDwell = attempt.dwells.reduce((a,b)=>a+b,0) / attempt.dwells.length;
+        let attemptAvgFlight = attempt.flights.reduce((a,b)=>a+b,0) / attempt.flights.length;
+        
+        zScores.push(getZ(attemptAvgDwell, model.global.avgDwell));
+        zScores.push(getZ(attemptAvgFlight, model.global.avgFlight));
+
+        // 2. Verify Specific Rhythm (Are they timing the exact password right?)
+        for(let i=0; i<model.specific.dwells.length; i++) {
+            zScores.push(getZ(attempt.dwells[i], model.specific.dwells[i]));
+        }
+        for(let i=0; i<model.specific.flights.length; i++) {
+            zScores.push(getZ(attempt.flights[i], model.specific.flights[i]));
+        }
+
+        // 3. Final Scoring calculation
+        // Calculate average Z-Score across all tracked metrics
+        let avgZ = zScores.reduce((a,b)=>a+b,0) / zScores.length;
+        
+        // Convert Z-score to Confidence %. 
+        // An avg Z of 0 = 100%. An avg Z of 2.5 = 0% confidence.
+        let confidence = Math.max(0, 100 - (avgZ * 40)); 
+
+        // Output Result
+        loginInput.disabled = true;
+        if (confidence >= 65) { // 65% is a very safe, realistic threshold for hybrid data
+            authStatus.innerHTML = `✅ ACCESS GRANTED<br><span style="font-size:14px; color:var(--success)">Confidence: ${confidence.toFixed(1)}% (Bio-Match Found)</span>`;
+            authStatus.style.color = "var(--success)";
+            setTimeout(() => { location.reload(); }, 3000); // Reset after success
+        } else {
+            authStatus.innerHTML = `❌ ACCESS DENIED<br><span style="font-size:14px; color:var(--danger)">Confidence: ${confidence.toFixed(1)}% (Imposter Rhythm Detected)</span>`;
+            authStatus.style.color = "var(--danger)";
+            setTimeout(() => {
+                loginInput.disabled = false;
+                loginInput.value = "";
+                loginInput.focus();
+                authStatus.innerHTML = "";
+            }, 2500);
+        }
     }
 </script>
 
